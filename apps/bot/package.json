@@ -1,0 +1,29 @@
+{
+  "name": "bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "dotenv": "^17.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "binance-api-node": "^0.13.9",
+    "bullmq": "^5.75.2",
+    "bybit-api": "^4.6.1",
+    "cocobase": "^1.5.4",
+    "crypto-js": "^4.2.0",
+    "ioredis": "^5.10.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "telegram": "^2.26.22"
+  }
+}
