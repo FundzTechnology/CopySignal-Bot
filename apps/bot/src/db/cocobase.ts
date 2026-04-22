@@ -1,4 +1,5 @@
-import { Cocobase } from "cocobase";
+import cocobase from "cocobase";
+const { Cocobase } = cocobase;
 import * as dotenv from "dotenv";
 dotenv.config();
 

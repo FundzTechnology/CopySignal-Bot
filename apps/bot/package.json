@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test:parser": "tsx src/scripts/testParser.ts",
+    "generate:session": "tsx src/scripts/generateSession.ts"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +18,7 @@
     "@types/node": "^25.6.0",
     "dotenv": "^17.4.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
   "dependencies": {
