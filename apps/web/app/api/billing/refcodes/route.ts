@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (existing.length > 0) {
-      return NextResponse.json(existing[0]);
+      return NextResponse.json(existing[0].data || existing[0]);
     }
 
     // Generate new ref codes (first 6 chars of userId, uppercased)
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       created_at: new Date().toISOString(),
     });
 
-    return NextResponse.json(newRef);
+    return NextResponse.json(newRef.data || newRef);
   } catch (err: any) {
     console.error('refcodes error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

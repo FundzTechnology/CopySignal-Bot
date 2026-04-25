@@ -5,7 +5,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --include=dev
+RUN npm install --include=dev
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -20,7 +20,7 @@ FROM node:22-alpine AS production
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy compiled JS from build stage
 COPY --from=builder /app/dist ./dist

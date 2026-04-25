@@ -25,3 +25,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  const userId = req.nextUrl.searchParams.get('userId');
+  if (!userId) {
+    return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  }
+
+  try {
+    const records = await db.listDocuments("api_keys", {
+      filters: { user_id: userId }
+    });
+    
+    // Do NOT return the plaintext or even ciphertext keys, only the status
+    const sanitized = records.map((r: any) => ({
+      id: r.id || r.data?.id,
+      exchange: r.exchange || r.data?.exchange,
+    }));
+
+    return NextResponse.json(sanitized);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

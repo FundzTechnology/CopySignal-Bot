@@ -1,23 +1,26 @@
-# apps/bot/fly.toml
+# fly.toml app configuration file generated for copysignal-bot-engine on 2026-04-25T15:16:39-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "copysignal-bot-engine"
-primary_region = "iad"
+app = 'copysignal-bot-engine'
+primary_region = 'iad'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "3001"
-  NODE_ENV = "production"
+  NODE_ENV = 'production'
+  PORT = '3001'
 
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = false   # CRITICAL — never let the bot machine stop
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 1     # Always keep at least 1 machine alive
+  min_machines_running = 1
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '512mb'
   cpus = 1
+  memory_mb = 512
