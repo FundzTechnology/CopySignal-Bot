@@ -37,7 +37,7 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
         return;
     }
     // ── Step 4: Check User Plan ───────────────────────────────
-    const user = await db.auth.getUser(userId);
+    const user = await db.auth.getUserById(userId);
     if (user?.data?.plan === 'free') {
         console.log(`User ${userId} on free plan — signal saved but not executed`);
         return;
@@ -69,7 +69,7 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
         order_type: 'Market',
         qty: result.qty,
         entry_price: result.entryPrice,
-        take_profit: parsed.take_profits[0] || null,
+        take_profit: parsed.take_profits[0] || undefined,
         stop_loss: parsed.stop_loss,
         status: result.success ? 'filled' : 'error',
         error_msg: result.error || null,
@@ -88,8 +88,8 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
             side: parsed.side,
             qty: result.qty,
             entry_price: result.entryPrice,
-            take_profit: parsed.take_profits[0],
-            stop_loss: parsed.stop_loss,
+            take_profit: parsed.take_profits[0] ?? undefined,
+            stop_loss: parsed.stop_loss ?? undefined,
             status: 'filled',
             exchange: channelDoc.exchange
         });

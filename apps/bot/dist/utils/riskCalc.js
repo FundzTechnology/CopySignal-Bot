@@ -1,4 +1,16 @@
 export function calculatePositionSize(params) {
+    if (!params.accountBalance || params.accountBalance <= 0) {
+        throw new Error(`Invalid account balance: ${params.accountBalance}`);
+    }
+    if (!params.entryPrice || params.entryPrice <= 0) {
+        throw new Error(`Invalid entry price: ${params.entryPrice}`);
+    }
+    if (!params.stopLossPrice || params.stopLossPrice <= 0) {
+        throw new Error(`Invalid stop loss: ${params.stopLossPrice}`);
+    }
+    if (params.entryPrice === params.stopLossPrice) {
+        throw new Error('Entry and stop loss cannot be the same price');
+    }
     const { accountBalance, riskPercent, entryPrice, stopLossPrice, leverage } = params;
     const riskAmount = accountBalance * (riskPercent / 100);
     const stopDistance = Math.abs(entryPrice - stopLossPrice);
