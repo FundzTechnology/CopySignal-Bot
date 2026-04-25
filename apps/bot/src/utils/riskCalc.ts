@@ -14,6 +14,19 @@ export interface PositionSizing {
 }
 
 export function calculatePositionSize(params: RiskParams): PositionSizing {
+  if (!params.accountBalance || params.accountBalance <= 0) {
+    throw new Error(`Invalid account balance: ${params.accountBalance}`);
+  }
+  if (!params.entryPrice || params.entryPrice <= 0) {
+    throw new Error(`Invalid entry price: ${params.entryPrice}`);
+  }
+  if (!params.stopLossPrice || params.stopLossPrice <= 0) {
+    throw new Error(`Invalid stop loss: ${params.stopLossPrice}`);
+  }
+  if (params.entryPrice === params.stopLossPrice) {
+    throw new Error('Entry and stop loss cannot be the same price');
+  }
+
   const { accountBalance, riskPercent, entryPrice, stopLossPrice, leverage } = params;
 
   const riskAmount = accountBalance * (riskPercent / 100);

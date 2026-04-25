@@ -1,32 +1,68 @@
 /**
  * CopySignal Bot — Main Entry Point
- * Boots the Telegram listener, loads all active channels from Cocobase,
- * and sets up real-time watches for new or deleted channels.
+ * Boots the Telegram listener, payment watchers, webhook server,
+ * and cron jobs. Loads all active channels from Cocobase on start.
  *
  * Run: npm run dev
  */
-import * as dotenv from "dotenv";
+import * as dotenv from 'dotenv';
 dotenv.config();
+
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 import { telegramListener } from './listener/telegramListener.js';
 import { handleSignal } from './services/orchestrator.js';
 import { db } from './db/cocobase.js';
+import { startSuiWatcher } from './payments/suiWatcher.js';
+import { ensureHeliusWebhook } from './payments/setupHeliusWebhook.js';
+import solanaWebhookRouter from './payments/solanaWebhook.js';
+import { runDailySubscriptionCheck } from './jobs/dailySubscriptionCheck.js';
+
+const PORT = parseInt(process.env.PORT || '3001');
 
 async function boot() {
-  console.log("🚀 CopySignal Bot starting...");
+  console.log('🚀 CopySignal Bot starting...');
 
-  // Connect Telegram client
+  // ── Express Server (Webhooks + Health) ──────────────────────
+  const app = express();
+  app.use(express.json());
+
+  // Rate-limit all webhook routes
+  const webhookLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/webhook', webhookLimiter);
+
+  // Health check (required for Fly.io)
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+  });
+
+  // Solana USDC payment webhook (from Helius)
+  app.use('/', solanaWebhookRouter);
+
+  app.listen(PORT, () => {
+    console.log(`🌐 Webhook server listening on port ${PORT}`);
+  });
+
+  // ── Telegram ─────────────────────────────────────────────────
   await telegramListener.connect();
 
   // Load all active channels from Cocobase
-  const channels = await db.listDocuments("channels", {
-    filters: { is_active: true }
+  const channels = await db.listDocuments('channels', {
+    filters: { is_active: true },
   });
 
   console.log(`📡 Loading ${channels.length} active channels...`);
 
   for (const channel of channels) {
-    const chanId = (channel as any).telegram_channel_id || (channel as any).channel_username;
+    const chanId =
+      (channel as any).telegram_channel_id || (channel as any).channel_username;
     telegramListener.addChannel(
       chanId,
       (message: string, messageId: string) => {
@@ -36,7 +72,7 @@ async function boot() {
   }
 
   // Watch for new channels being added or removed in real time
-  const channelWatcher = db.realtime.collection("channels");
+  const channelWatcher = db.realtime.collection('channels');
   channelWatcher.connect();
 
   channelWatcher.onCreate((event: any) => {
@@ -60,7 +96,20 @@ async function boot() {
     }
   });
 
-  console.log("✅ Bot is fully running. Waiting for signals...");
+  // ── Payment Watchers ─────────────────────────────────────────
+  // SUI — polls every 10 seconds
+  await startSuiWatcher();
+
+  // Solana — register Helius webhook at startup (idempotent)
+  await ensureHeliusWebhook();
+
+  // ── Daily Subscription Cron ──────────────────────────────────
+  // Runs at 00:00 UTC every day
+  cron.schedule('0 0 * * *', () => {
+    runDailySubscriptionCheck().catch(console.error);
+  });
+
+  console.log('✅ Bot is fully running. Waiting for signals...');
 }
 
 boot().catch(console.error);

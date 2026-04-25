@@ -1,9 +1,36 @@
-# Changelog
+## [2026-04-25T13:11:00-07:00]
+### Security Mitigations & Hardening
+- **Mitigated RISK 6:** Added hard guards to `calculatePositionSize` in `apps/bot/src/utils/riskCalc.ts` to prevent position sizing errors and throw exceptions if account balance is 0 or prices are invalid, ensuring orchestrator catches the error and stops the trade.
+- **Mitigated RISK 9:** Created a root `.gitignore` file to strictly ignore all `.env` files (except `.env.example`) to prevent accidental commits of secrets like `ENCRYPTION_KEY`, `TELEGRAM_SESSION`, and API keys.
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to bottom-top chronological order (newest at the top).
+## [2026-04-25T12:57:00-07:00]
+### Added — Phase 4: Crypto Payment System (USDC on Solana & SUI)
+- **Removed Stripe entirely.** Deleted `apps/web/app/api/checkout/route.ts` and `apps/web/app/api/webhooks/stripe/route.ts`. Stripe is no longer used for any part of the payment flow.
+- **Created `apps/bot/src/payments/subscriptionManager.ts`** — Central activation logic. Called by both Solana and SUI payment handlers. Creates a record in the `payments` collection, updates the user's plan and expiry, and sends a Telegram confirmation message. Deduplication is enforced via `tx_signature` uniqueness.
+- **Created `apps/bot/src/payments/solanaWebhook.ts`** — Express route handler for Helius webhook (`POST /webhook/solana`). On each incoming event: verifies the transaction exists on-chain via Helius RPC (anti-forgery), deduplicates by `tx_signature`, checks for the USDC mint (`DSgSbuu4J4tDFjo7qb98TjtNeDwMHH68CwiKZi66P3Y3`), extracts the `SOL-REF-XXXXXX` code from the memo, maps to user, determines plan tier by amount ($29 = Starter, $79 = Pro), and calls `activateSubscription()`. Unmatched payments are logged to `unmatched_payments` for manual review.
+- **Created `apps/bot/src/payments/suiWatcher.ts`** — Polls SUI Mainnet RPC (`fullnode.mainnet.sui.io`) every 10 seconds using direct JSON-RPC calls (`suix_queryTransactionBlocks` + `sui_getTransactionBlock`). Monitors the SUI wallet for USDC inflows using coin type `0x7f821d44c87a6c44689298672fea7e54800a8a4f9cba2edd6776d8233c7b819f::usdc::USDC`. Extracts `SUI-REF-XXXXXX` from transaction memo/input fields. Uses cursor pagination to avoid reprocessing old transactions.
+- **Created `apps/bot/src/payments/setupHeliusWebhook.ts`** — Idempotent webhook registration at bot startup using `createHelius()` from `helius-sdk`. Skips gracefully if already registered or env vars are missing.
+- **Created `apps/bot/src/jobs/dailySubscriptionCheck.ts`** — Cron job running at 00:00 UTC. Fetches all users and filters by plan in memory (Cocobase does not support array filter values). Downgrades expired accounts to free and sends Telegram alerts on days 3, 2, and 1 before expiry.
+- **Updated `apps/bot/src/index.ts`** — Added Express server startup on `PORT` (default 3001) with `/health` and `/webhook/solana` endpoints. Express rate-limiter applied to all `/webhook/*` routes. `startSuiWatcher()`, `ensureHeliusWebhook()`, and `node-cron` daily subscription job wired in at boot.
+- **Updated `apps/bot/fly.toml`** — Added `[http_service]` block with `auto_stop_machines = false` and `min_machines_running = 1` to ensure the bot VM never sleeps.
+- **Updated `apps/bot/Dockerfile`** — Multi-stage alpine build: compile TypeScript in builder, copy only `dist/` + prod deps to final image. Added `HEALTHCHECK` targeting port 3001.
+- **Installed bot deps:** `express`, `@solana/web3.js`, `helius-sdk`, `@mysten/sui`, `node-cron`, `express-rate-limit`, `@types/express`, `@types/node-cron`.
+- **Created `apps/web/lib/auth.ts`** — `registerUser()` helper that sets `plan: 'trial'`, `trial_used: true`, and `plan_expires_at = now + 5 days`. Used by the register page. The `trial_used` flag is permanent and must never be overwritten.
+- **Updated `apps/web/app/(auth)/register/page.tsx`** — Now calls `registerUser()` helper, shows "5 days free Pro access" messaging, loading state, and improved validation.
+- **Updated `apps/web/app/(auth)/login/page.tsx`** — Added trial upsell messaging, Enter-key login support, and loading state.
+- **Created `apps/web/app/(dashboard)/dashboard/billing/page.tsx`** — Full billing page: shows current plan + expiry, plan comparison selector ($29 Starter / $79 Pro), chain toggle (SUI marked ✅ Recommended / Solana), wallet address with copy button, personal reference code (`SUI-REF-XXXXXX` / `SOL-REF-XXXXXX`) with copy button, step-by-step payment instructions per chain, USDC contract addresses for verification, and a post-payment explanation of activation timing.
+- **Created `apps/web/app/api/billing/refcodes/route.ts`** — `GET /api/billing/refcodes?userId=...` — idempotently fetches or creates the user's payment reference codes from the `payment_refs` collection.
+- **Created `apps/web/app/api/health/route.ts`** — `GET /api/health` returning `{ status, timestamp, version }`.
+- **Created `apps/web/components/SubscriptionWarningCard.tsx`** — Fixed bottom-left persistent warning card. Appears at ≤3 days remaining (never before). Color: yellow (3 days) → orange (2 days) → red (1 day). No dismiss button by design. Links to `/dashboard/billing`.
+- **Updated `apps/web/app/(dashboard)/layout.tsx`** — Added `<SubscriptionWarningCard />` so it appears on every dashboard page.
+- **Updated `apps/web/components/Sidebar.tsx`** — Fixed Billing link to `/dashboard/billing` (was `/billing`). Added active link highlighting using `usePathname`. Added emoji icons and subtitle branding.
+- **Created `apps/web/vercel.json`** — Sets `maxDuration: 10` for all API routes, framework set to `nextjs`.
+- **Updated `apps/web/next.config.ts`** — Added production security headers (HSTS, X-Frame-Options, XSS Protection, Referrer-Policy, Permissions-Policy). Added Google profile image domain for OAuth.
+- **Created `apps/web/.env.example`** — Template for all web env vars (safe to commit, no real values).
+- **Installed web deps:** `next-auth`, `swr`.
+### Verified
+- `npx tsc --noEmit` passes with **zero errors** in `apps/bot`.
+- `npx tsc --noEmit` passes with **zero errors** in `apps/web`.
 
 ## [2026-04-24T05:00:54-07:00]
 ### Changed — Fly.io Deployment Migration

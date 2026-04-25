@@ -1,39 +1,34 @@
 # syntax = docker/dockerfile:1
+# Build stage — compile TypeScript
+FROM node:20-alpine AS builder
 
-# Adjust NODE_VERSION as desired
-ARG NODE_VERSION=20.11.0
-FROM node:${NODE_VERSION}-slim as base
-
-LABEL fly_launch_runtime="Node.js"
-
-# Node.js app lives here
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV="production"
+COPY package*.json ./
+RUN npm ci --include=dev
 
-# Throw-away build stage to reduce size of final image
-FROM base as build
+COPY tsconfig.json ./
+COPY src ./src
 
-# Install packages needed to build node modules
-RUN apt-get update -qq && \
-    apt-get install -y build-essential pkg-config python-is-python3
+# Compile TypeScript → JavaScript
+RUN npx tsc
 
-# Install node modules
-COPY package.json package-lock.json* ./
-RUN npm ci
+# ─────────────────────────────────────────────
+# Production stage — lean image
+FROM node:20-alpine AS production
 
-# Copy application code
-COPY . .
+WORKDIR /app
 
-# Build application
-RUN npm run build
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Final stage for app image
-FROM base
+# Copy compiled JS from build stage
+COPY --from=builder /app/dist ./dist
 
-# Copy built application
-COPY --from=build /app /app
+# Health check — Fly.io uses this to verify the machine is alive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-# Start the server by default, this can be overwritten at runtime
-CMD [ "npm", "run", "start" ]
+EXPOSE 3001
+
+CMD ["node", "dist/index.js"]
