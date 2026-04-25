@@ -1,0 +1,1 @@
+{"version":3,"file":"testImport2.js","sourceRoot":"","sources":["../../src/scripts/testImport2.ts"],"names":[],"mappings":"AAAA,OAAO,eAAe,MAAM,UAAU,CAAC;AACvC,OAAO,CAAC,GAAG,CAAC,UAAU,EAAE,OAAO,eAAe,CAAC,CAAC;AAChD,IAAI,OAAO,eAAe,KAAK,UAAU,IAAI,OAAO,eAAe,KAAK,QAAQ,EAAE,CAAC;IAC/E,OAAO,CAAC,GAAG,CAAC,kBAAkB,EAAE,MAAM,CAAC,IAAI,CAAC,eAAe,CAAC,CAAC,CAAC;AAClE,CAAC"}

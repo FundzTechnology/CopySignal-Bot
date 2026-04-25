@@ -1,55 +1,66 @@
 /**
  * CopySignal Bot — Main Entry Point
- * Boots the Telegram listener and loads all active channels from Cocobase.
+ * Boots the Telegram listener, loads all active channels from Cocobase,
+ * and sets up real-time watches for new or deleted channels.
  *
  * Run: npm run dev
  */
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import { telegramListener } from "./listener/telegramListener.js";
-import { db } from "./db/cocobase.js";
-import { parseSignal } from "./parser/signalParser.js";
+import { telegramListener } from './listener/telegramListener.js';
+import { handleSignal } from './services/orchestrator.js';
+import { db } from './db/cocobase.js';
 
 async function boot() {
   console.log("🚀 CopySignal Bot starting...");
 
-  // 1. Connect the Telegram MTProto client
+  // Connect Telegram client
   await telegramListener.connect();
 
-  // 2. Load all active channel subscriptions from Cocobase
-  let channels: any[] = [];
-  try {
-    channels = await db.listDocuments("channels");
-    console.log(`📋 Loaded ${channels.length} active channel(s) from Cocobase`);
-  } catch (err: any) {
-    console.error("⚠️  Could not load channels from Cocobase:", err.message);
-    console.log("Running in standalone mode (parser only).");
-  }
+  // Load all active channels from Cocobase
+  const channels = await db.listDocuments("channels", {
+    filters: { is_active: true }
+  });
 
-  // 3. Register each active channel with the listener
+  console.log(`📡 Loading ${channels.length} active channels...`);
+
   for (const channel of channels) {
-    if (!channel.is_active) continue;
-
-    const channelId = channel.telegram_channel_id || channel.channel_username;
-    if (!channelId) continue;
-
-    telegramListener.addChannel(channelId, async (rawMessage: string, msgId: string) => {
-      console.log(`\n📩 Signal received from ${channel.channel_name}`);
-
-      const parsed = parseSignal(rawMessage);
-      console.log(`🔍 Parsed: ${parsed.symbol} ${parsed.side} | Confidence: ${parsed.confidence}`);
-
-      // TODO Phase 3: hand off to orchestrator for execution
-      // await handleIncomingSignal(rawMessage, channel);
-    });
+    const chanId = (channel as any).telegram_channel_id || (channel as any).channel_username;
+    telegramListener.addChannel(
+      chanId,
+      (message: string, messageId: string) => {
+        handleSignal(message, messageId, channel);
+      }
+    );
   }
 
-  console.log("\n✅ Bot is running and listening for signals...");
-  console.log("   Press Ctrl+C to stop.\n");
+  // Watch for new channels being added or removed in real time
+  const channelWatcher = db.realtime.collection("channels");
+  channelWatcher.connect();
+
+  channelWatcher.onCreate((event: any) => {
+    if (event.data?.is_active) {
+      console.log(`🆕 New channel added: ${event.data.channel_name}`);
+      telegramListener.addChannel(
+        event.data.telegram_channel_id || event.data.channel_username,
+        (message: string, messageId: string) => {
+          handleSignal(message, messageId, event.data);
+        }
+      );
+    }
+  });
+
+  channelWatcher.onUpdate((event: any) => {
+    if (!event.data?.is_active) {
+      console.log(`🔇 Channel deactivated: ${event.data.channel_name}`);
+      telegramListener.removeChannel(
+        event.data.telegram_channel_id || event.data.channel_username
+      );
+    }
+  });
+
+  console.log("✅ Bot is fully running. Waiting for signals...");
 }
 
-boot().catch((err) => {
-  console.error("❌ Fatal boot error:", err);
-  process.exit(1);
-});
+boot().catch(console.error);
