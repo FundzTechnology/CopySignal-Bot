@@ -5,7 +5,7 @@
  * Add more real signals from Telegram to TEST_SIGNALS before running.
  * Target: 80%+ pass rate before moving to Phase 3.
  */
-import { parseSignal } from '../parser/signalParser.js';
+import { parseSignal, scoreSignal, classifyConfidence } from '../parser/signalParser.js';
 
 const TEST_SIGNALS = [
   // Format 1 — Clean short format
@@ -44,15 +44,21 @@ let passed = 0;
 let highConf = 0;
 
 TEST_SIGNALS.forEach((sig, i) => {
-  const result = parseSignal(sig);
-  const ok = result.confidence !== 'failed' && result.symbol && result.side;
+  const parsed = parseSignal(sig);
+  const score = scoreSignal(parsed);
+  const confidence = classifyConfidence(score);
+  
+  parsed.confidence_score = score;
+  parsed.confidence = confidence;
+
+  const ok = confidence !== 'failed' && parsed.symbol && parsed.side;
   if (ok) passed++;
-  if (result.confidence === 'high') highConf++;
+  if (confidence === 'high') highConf++;
 
   const status = ok ? '✅' : '❌';
-  console.log(`Signal ${i + 1}: ${status} [${result.confidence.toUpperCase()}] score=${result.confidence_score}`);
-  console.log(`  Symbol: ${result.symbol ?? 'null'} | Side: ${result.side ?? 'null'} | Entry: ${result.entry ?? 'null'}`);
-  console.log(`  TPs: [${result.take_profits.join(', ')}] | SL: ${result.stop_loss ?? 'null'} | Leverage: ${result.leverage}x`);
+  console.log(`Signal ${i + 1}: ${status} [${confidence.toUpperCase()}] score=${score}`);
+  console.log(`  Symbol: ${parsed.symbol ?? 'null'} | Side: ${parsed.side ?? 'null'} | Entry: ${parsed.entry ?? 'null'}`);
+  console.log(`  TPs: [${parsed.take_profits.join(', ')}] | SL: ${parsed.stop_loss ?? 'null'} | Leverage: ${parsed.leverage}x`);
   console.log(`  Raw: "${sig.substring(0, 70).replace(/\n/g, ' ')}..."\n`);
 });
 

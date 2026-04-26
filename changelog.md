@@ -1,3 +1,18 @@
+## [2026-04-26T13:10:00-07:00]
+### Critical Patches — Payment Architecture & Signal Engine Upgrades
+- **Payment Overhaul:** Migrated from flawed memo-based tracking to **BIP44-compliant Ephemeral HD Wallets**. Generated per-user unique deposit addresses for both Solana (`apps/bot/src/payments/solanaWalletDeriver.ts`) and SUI (`apps/bot/src/payments/suiWalletDeriver.ts`) using a master seed. 
+- **Payment Flow Upgrade:** Implemented `apps/bot/src/payments/solanaPaymentSession.ts` to manage 2-hour payment sessions. `apps/bot/src/payments/api.ts` provides the `/api/payments/session` REST API. Updated `solanaWebhook.ts` and `suiWatcher.ts` to sweep funds directly to the master wallet and activate subscriptions based on exact received amounts. 
+- **Session Cleanup Job:** Added `apps/bot/src/jobs/cleanExpiredSessions.ts` to automatically expire pending sessions after 2 hours and detach them from the Helius webhook limit.
+- **Frontend Billing Overhaul:** Fully rewrote `apps/web/app/(dashboard)/dashboard/billing/page.tsx` to call the `/api/billing/session` endpoint. The UI now displays a dynamic, unique user address alongside a live countdown timer, replacing static master wallet displays.
+- **User Registration Hook:** Updated `apps/web/lib/auth.ts` to perform an atomic increment on the `user_indices` singleton collection, assigning a permanent `user_index` to each new registration to deterministically map HD wallet derivation paths.
+- **Signal Buffering & Intelligence:** Implemented `apps/bot/src/parser/messageBuffer.ts` to queue split Telegram messages for 15 seconds before processing, solving the multi-message transmission format from some channels.
+- **Advanced Parsing Filters:** Added `containsTriggerKeyword` in `apps/bot/src/parser/signalParser.ts`. Updated `orchestrator.ts` into a "7-gate" signal pipeline including deduplication, trigger keyword checking, confidence scoring, trade quality check (min R:R ratio), TP selection strategy rules, and execution routing.
+- **Dynamic Trade Management:** Built `apps/bot/src/parser/managementParser.ts` and `apps/bot/src/executors/tradeManager.ts` to allow in-progress trade manipulation. Recognizes directives like "MOVE SL TO ENTRY", "HOLD TO TP3", and "CLOSE 50%", and updates executing logic accordingly.
+- **Channel Rules UI:** Created `apps/web/app/(dashboard)/dashboard/channel-rules/page.tsx` allowing users to configure customized options per-channel: specific trigger keywords, custom TP strategies (TP1 vs LAST target), buffer window durations, and management command toggles.
+- **Dependencies Upgrade:** Added `bip39`, `ed25519-hd-key`, `bs58`, and `@mysten/sui.js`. Resolved import conflicts between SUI SDK versions by anchoring to the robust v1 bindings used elsewhere in the orchestrator.
+### Verified
+- `npx tsc --noEmit` passes with **zero errors** in `apps/bot` confirming integration stability across all new patch modules.
+
 ## [2026-04-25T13:11:00-07:00]
 ### Security Mitigations & Hardening
 - **Mitigated RISK 6:** Added hard guards to `calculatePositionSize` in `apps/bot/src/utils/riskCalc.ts` to prevent position sizing errors and throw exceptions if account balance is 0 or prices are invalid, ensuring orchestrator catches the error and stops the trade.

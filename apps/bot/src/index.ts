@@ -18,14 +18,16 @@ import { db } from './db/cocobase.js';
 import { startSuiWatcher } from './payments/suiWatcher.js';
 import { ensureHeliusWebhook } from './payments/setupHeliusWebhook.js';
 import solanaWebhookRouter from './payments/solanaWebhook.js';
+import paymentsApi from './payments/api.js';
 import { runDailySubscriptionCheck } from './jobs/dailySubscriptionCheck.js';
+import { cleanExpiredPaymentSessions } from './jobs/cleanExpiredSessions.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 
 async function boot() {
   console.log('🚀 CopySignal Bot starting...');
 
-  // ── Express Server (Webhooks + Health) ──────────────────────
+  // ── Express Server (Webhooks + Health + APIs) ─────────────────
   const app = express();
   app.use(express.json());
 
@@ -42,6 +44,9 @@ async function boot() {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
   });
+
+  // REST APIs for Web Dashboard
+  app.use('/api/payments', paymentsApi);
 
   // Solana USDC payment webhook (from Helius)
   app.use('/', solanaWebhookRouter);
@@ -67,7 +72,8 @@ async function boot() {
       chanId,
       (message: string, messageId: string) => {
         handleSignal(message, messageId, channel);
-      }
+      },
+      (channel as any).buffer_window_seconds
     );
   }
 
@@ -82,7 +88,8 @@ async function boot() {
         event.data.telegram_channel_id || event.data.channel_username,
         (message: string, messageId: string) => {
           handleSignal(message, messageId, event.data);
-        }
+        },
+        event.data.buffer_window_seconds
       );
     }
   });
@@ -107,6 +114,11 @@ async function boot() {
   // Runs at 00:00 UTC every day
   cron.schedule('0 0 * * *', () => {
     runDailySubscriptionCheck().catch(console.error);
+  });
+
+  // Runs every hour to clean expired sessions
+  cron.schedule('0 * * * *', () => {
+    cleanExpiredPaymentSessions().catch(console.error);
   });
 
   console.log('✅ Bot is fully running. Waiting for signals...');

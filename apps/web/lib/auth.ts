@@ -12,11 +12,24 @@ export async function registerUser(
   const trialEndsAt = new Date();
   trialEndsAt.setDate(trialEndsAt.getDate() + 5); // 5 days from now
 
+  // Atomic increment to get a unique user index for HD Wallets
+  let newIndex = 1;
+  try {
+    const counterDoc = await db.getDocument("user_indices", "singleton");
+    newIndex = counterDoc.current_index + 1;
+    await db.updateDocument("user_indices", "singleton", { current_index: newIndex });
+  } catch (err) {
+    // If the singleton doesn't exist yet, create it starting at 1
+    console.warn("user_indices singleton not found, initializing to 1");
+    await db.createDocument("user_indices", { id: "singleton", current_index: 1 });
+  }
+
   return await db.auth.register({
     email,
     password,
     data: {
       username,
+      user_index: newIndex,                       // ─── ASSIGNED PERMANENT HD WALLET INDEX
       plan: 'trial',                              // Starts on trial
       trial_used: true,                           // PERMANENT — never reset
       trial_ends_at: trialEndsAt.toISOString(),

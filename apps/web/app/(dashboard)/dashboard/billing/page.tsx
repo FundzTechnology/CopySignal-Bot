@@ -1,12 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-
-interface RefCodes {
-  sol_ref_code: string;
-  sui_ref_code: string;
-}
 
 const PLANS = [
   {
@@ -41,25 +36,59 @@ const PLANS = [
   },
 ];
 
-// Wallet addresses
-const SOLANA_WALLET = process.env.NEXT_PUBLIC_SOLANA_WALLET_ADDRESS || '';
-const SUI_WALLET = process.env.NEXT_PUBLIC_SUI_WALLET_ADDRESS || '';
-
 export default function BillingPage() {
   const { user } = useAuth();
-  const [refCodes, setRefCodes] = useState<RefCodes | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro'>('pro');
   const [selectedChain, setSelectedChain] = useState<'sui' | 'solana'>('sui');
   const [copied, setCopied] = useState<string | null>(null);
-  const [loadingRefs, setLoadingRefs] = useState(true);
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [paymentSession, setPaymentSession] = useState<{ address: string, expiresAt: string } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  const generateSession = async () => {
+    if (!user) return;
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/billing/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, chain: selectedChain, plan: selectedPlan })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPaymentSession({ address: data.address, expiresAt: data.expiresAt });
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate payment address');
+    }
+    setIsGenerating(false);
+  };
 
   useEffect(() => {
-    if (!user) return;
-    fetch(`/api/billing/refcodes?userId=${user.id}`)
-      .then(r => r.json())
-      .then(data => { setRefCodes(data); setLoadingRefs(false); })
-      .catch(() => setLoadingRefs(false));
-  }, [user]);
+    if (!paymentSession) return;
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const expiry = new Date(paymentSession.expiresAt).getTime();
+      const distance = expiry - now;
+
+      if (distance < 0) {
+        clearInterval(interval);
+        setTimeLeft('EXPIRED');
+      } else {
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [paymentSession]);
+
+  // Reset session if chain or plan changes
+  useEffect(() => {
+    setPaymentSession(null);
+  }, [selectedChain, selectedPlan]);
 
   const copy = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -74,8 +103,6 @@ export default function BillingPage() {
       })
     : null;
 
-  const walletAddress = selectedChain === 'sui' ? SUI_WALLET : SOLANA_WALLET;
-  const refCode = selectedChain === 'sui' ? refCodes?.sui_ref_code : refCodes?.sol_ref_code;
   const selectedPlanAmount = PLANS.find(p => p.id === selectedPlan)?.amount || 0;
 
   return (
@@ -196,48 +223,41 @@ export default function BillingPage() {
           </p>
         </div>
 
-        {/* Step 1 — Wallet Address */}
-        <div>
-          <p className="text-zinc-400 text-sm mb-2 font-medium">
-            Step 1 — Send to this wallet address
-          </p>
-          <div className="flex items-center gap-2 bg-zinc-800 rounded-xl p-3">
-            <code className="text-zinc-200 text-xs flex-1 break-all font-mono leading-relaxed">
-              {walletAddress || '(wallet address not configured)'}
-            </code>
-            <button
-              onClick={() => copy(walletAddress, 'wallet')}
-              className="shrink-0 bg-zinc-700 hover:bg-zinc-600 text-white text-xs px-3 py-1.5 rounded-lg transition"
-            >
-              {copied === 'wallet' ? '✓ Copied' : 'Copy'}
-            </button>
-          </div>
-        </div>
-
-        {/* Step 2 — Reference Code */}
-        <div>
-          <p className="text-zinc-400 text-sm mb-2 font-medium">
-            Step 2 — Include this reference code in the memo / note field
-          </p>
-          {loadingRefs ? (
-            <div className="bg-zinc-800 rounded-xl p-3 animate-pulse h-12" />
-          ) : (
+        {!paymentSession ? (
+          <button 
+            onClick={generateSession}
+            disabled={isGenerating}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition disabled:opacity-50"
+          >
+            {isGenerating ? 'Generating Wallet...' : 'Generate Payment Wallet'}
+          </button>
+        ) : (
+          <div className="space-y-4 border border-blue-900/50 bg-blue-950/20 p-5 rounded-xl">
+            <div className="flex justify-between items-center">
+              <p className="text-zinc-300 text-sm font-medium">Send EXACTLY ${selectedPlanAmount} USDC to this unique address:</p>
+              <div className="flex items-center gap-2">
+                 <span className="text-xs text-zinc-400">Expires in:</span>
+                 <span className={`font-mono text-sm font-bold ${timeLeft === 'EXPIRED' ? 'text-red-400' : 'text-emerald-400'}`}>{timeLeft}</span>
+              </div>
+            </div>
+            
             <div className="flex items-center gap-2 bg-zinc-800 rounded-xl p-3">
-              <code className="text-emerald-400 text-sm flex-1 font-mono font-bold tracking-widest">
-                {refCode || 'Loading...'}
+              <code className="text-emerald-400 text-sm flex-1 break-all font-mono leading-relaxed">
+                {paymentSession.address}
               </code>
               <button
-                onClick={() => copy(refCode || '', 'ref')}
+                onClick={() => copy(paymentSession.address, 'wallet')}
                 className="shrink-0 bg-zinc-700 hover:bg-zinc-600 text-white text-xs px-3 py-1.5 rounded-lg transition"
               >
-                {copied === 'ref' ? '✓ Copied' : 'Copy'}
+                {copied === 'wallet' ? '✓ Copied' : 'Copy'}
               </button>
             </div>
-          )}
-          <p className="text-zinc-500 text-xs mt-2">
-            ⚠️ This reference code links your payment to your account. Missing it means manual review is needed.
-          </p>
-        </div>
+            
+            <p className="text-blue-400 text-xs font-semibold">
+              ℹ️ No memo required! This wallet is uniquely generated for your account. Payment is confirmed automatically.
+            </p>
+          </div>
+        )}
 
         {/* Step 3 — Instructions */}
         <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
@@ -249,18 +269,16 @@ export default function BillingPage() {
               <>
                 <li>Open <span className="text-white">Sui Wallet</span> → tap Send</li>
                 <li>Select <span className="text-white">USDC</span> as the token</li>
-                <li>Paste the wallet address above</li>
+                <li>Paste your unique wallet address above</li>
                 <li>Enter <span className="text-white">${selectedPlanAmount}</span> as the amount</li>
-                <li>In the <span className="text-white">memo / note</span> field, paste your reference code</li>
                 <li>Confirm and send</li>
               </>
             ) : (
               <>
                 <li>Open <span className="text-white">Phantom</span> → tap Send</li>
                 <li>Select <span className="text-white">USDC</span> (not SOL)</li>
-                <li>Paste the wallet address above</li>
+                <li>Paste your unique wallet address above</li>
                 <li>Enter <span className="text-white">${selectedPlanAmount}</span></li>
-                <li>Add your reference code in the <span className="text-white">memo</span> field</li>
                 <li>Confirm and send</li>
               </>
             )}
