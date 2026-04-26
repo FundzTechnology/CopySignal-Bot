@@ -20,7 +20,15 @@ export default function RegisterPage() {
       await registerUser(form.email, form.password, form.username);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      const msg = (err?.message || err?.error || '').toLowerCase();
+      let friendlyError = 'Registration failed. Please try again.';
+      
+      if (msg.includes('no active subscription') || msg.includes('402')) friendlyError = "Can't create account at the moment. Please try again later.";
+      else if (msg.includes('already') || msg.includes('exists')) friendlyError = 'This email has already been used. Please log in instead.';
+      else if (msg.includes('password')) friendlyError = 'Please ensure your password is secure and try again.';
+      else if (msg.includes('email')) friendlyError = 'Please check your email address properly.';
+
+      setError(friendlyError);
     } finally {
       setLoading(false);
     }

@@ -20,7 +20,14 @@ export default function LoginPage() {
       await db.auth.login({ email: form.email, password: form.password });
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Check your credentials.');
+      const msg = (err?.message || err?.error || '').toLowerCase();
+      let friendlyError = "Can't sign in at the moment. Please try again.";
+      
+      if (msg.includes('invalid') || msg.includes('wrong') || msg.includes('not found') || msg.includes('credential')) {
+        friendlyError = 'Wrong email or password. Please check your details properly.';
+      }
+
+      setError(friendlyError);
     } finally {
       setLoading(false);
     }
