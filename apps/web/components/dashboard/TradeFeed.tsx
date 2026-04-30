@@ -44,7 +44,9 @@ export default function TradeFeed() {
       }
     });
 
-    return () => watcher.disconnect();
+    return () => {
+      setTimeout(() => watcher.disconnect(), 1000);
+    };
   }, [user]);
 
   if (loading) return <div className="text-zinc-500 p-4">Loading trades...</div>;

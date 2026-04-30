@@ -20,7 +20,7 @@ export default function LoginPage() {
       await db.auth.login({ email: form.email, password: form.password });
       router.push('/dashboard');
     } catch (err: any) {
-      const msg = (err?.message || err?.error || '').toLowerCase();
+      const msg = (typeof err === 'string' ? err : JSON.stringify(err)).toLowerCase();
       let friendlyError = "Can't sign in at the moment. Please try again.";
       
       if (msg.includes('invalid') || msg.includes('wrong') || msg.includes('not found') || msg.includes('credential')) {

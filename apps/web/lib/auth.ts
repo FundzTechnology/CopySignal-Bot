@@ -16,7 +16,7 @@ export async function registerUser(
   let newIndex = 1;
   try {
     const counterDoc = await db.getDocument("user_indices", "singleton");
-    newIndex = counterDoc.current_index + 1;
+    newIndex = (counterDoc as any).current_index + 1;
     await db.updateDocument("user_indices", "singleton", { current_index: newIndex });
   } catch (err) {
     // If the singleton doesn't exist yet, create it starting at 1

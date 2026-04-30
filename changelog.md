@@ -1,3 +1,12 @@
+## [2026-04-30T01:17:00-07:00]
+### Fixed — Production Deployment & Billing Workflow
+- **Fixed `lib/auth.ts` TypeScript Error:** Resolved Vercel deployment failure (`Property 'current_index' does not exist on type 'Document<any>'`) by casting `counterDoc` to `any` before accessing `current_index`.
+- **Fixed 500 Error in Billing Session API:** Modified `apps/web/app/api/billing/session/route.ts`. Updated `botUrl` to default to `http://localhost:3001` (bot engine's actual port) instead of 8080, fixing the connection refused issue causing the 500 error. Also bypassed a TypeScript strictness error by casting `db.auth` to `any` to use `getUserById(userId)`.
+- **Cleaned Up Billing UI:** Edited `apps/web/app/(dashboard)/dashboard/billing/page.tsx` to remove the "USDC Contract Addresses" section, reducing user confusion as the system now generates ephemeral wallets per user.
+- **Fixed WebSocket Connection Error:** Modified `apps/web/components/dashboard/TradeFeed.tsx` to wrap `watcher.disconnect()` in a 1-second `setTimeout`. This prevents React 18 Strict Mode from tearing down the WebSocket connection before it establishes, which was causing the `WebSocket is closed before the connection is established` error in the console.
+### Verified
+- `npm run build` completed successfully with zero Next.js and TypeScript errors.
+
 ## [2026-04-26T13:10:00-07:00]
 ### Critical Patches — Payment Architecture & Signal Engine Upgrades
 - **Payment Overhaul:** Migrated from flawed memo-based tracking to **BIP44-compliant Ephemeral HD Wallets**. Generated per-user unique deposit addresses for both Solana (`apps/bot/src/payments/solanaWalletDeriver.ts`) and SUI (`apps/bot/src/payments/suiWalletDeriver.ts`) using a master seed. 

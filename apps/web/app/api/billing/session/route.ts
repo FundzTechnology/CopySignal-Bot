@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const user = await db.auth.getUserById(userId);
+    const user = await (db.auth as any).getUserById(userId);
     if (!user || !user.data) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     // Wait, apps/web shouldn't hold the master mnemonic.
     // In our PRD, the web app calls the bot's REST API endpoint.
     
-    const botUrl = process.env.BOT_URL || 'http://localhost:8080';
+    const botUrl = process.env.BOT_URL || 'http://localhost:3001';
     const response = await fetch(`${botUrl}/api/payments/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

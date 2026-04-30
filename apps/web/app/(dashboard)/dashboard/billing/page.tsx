@@ -293,26 +293,6 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* USDC Contract Info */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-        <p className="text-zinc-400 text-xs font-semibold mb-3 uppercase tracking-wider">
-          USDC Contract Addresses (for verification)
-        </p>
-        <div className="space-y-2">
-          <div>
-            <span className="text-zinc-500 text-xs">SUI: </span>
-            <code className="text-zinc-300 text-xs font-mono">
-              0x7f821d44c87a6c44689298672fea7e54800a8a4f9cba2edd6776d8233c7b819f
-            </code>
-          </div>
-          <div>
-            <span className="text-zinc-500 text-xs">Solana: </span>
-            <code className="text-zinc-300 text-xs font-mono">
-              DSgSbuu4J4tDFjo7qb98TjtNeDwMHH68CwiKZi66P3Y3
-            </code>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

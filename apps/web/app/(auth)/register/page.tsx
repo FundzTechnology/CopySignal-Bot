@@ -20,7 +20,7 @@ export default function RegisterPage() {
       await registerUser(form.email, form.password, form.username);
       router.push('/dashboard');
     } catch (err: any) {
-      const msg = (err?.message || err?.error || '').toLowerCase();
+      const msg = (typeof err === 'string' ? err : JSON.stringify(err)).toLowerCase();
       let friendlyError = 'Registration failed. Please try again.';
       
       if (msg.includes('no active subscription') || msg.includes('402')) friendlyError = "Can't create account at the moment. Please try again later.";
