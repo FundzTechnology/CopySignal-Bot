@@ -1,13 +1,12 @@
 import { Connection } from '@solana/web3.js';
-import { createHelius } from 'helius-sdk';
 import { db } from '../db/cocobase.js';
 import { getDerivedSolanaWalletAddress, sweepUSDCToMaster } from './solanaWalletDeriver.js';
 import { activateSubscription } from './subscriptionManager.js';
+import { addAddressToHeliusWebhook } from './setupHeliusWebhook.js';
 
 const connection = new Connection(
   `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
 );
-const helius = createHelius({ apiKey: process.env.HELIUS_API_KEY! });
 
 const SESSION_EXPIRY_HOURS = 2;
 
@@ -44,29 +43,7 @@ export async function createPaymentSession(
   };
 }
 
-// Helius dynamically supports adding addresses to an existing webhook
-async function addAddressToHeliusWebhook(address: string) {
-  try {
-    const webhooks = await helius.getAllWebhooks();
-    const webhook = webhooks.find(
-      (w: any) => w.webhookURL === process.env.HELIUS_WEBHOOK_URL
-    );
-    if (!webhook) return;
 
-    // Add the new address to the existing webhook's address list
-    const currentAddresses: string[] = webhook.accountAddresses || [];
-    if (!currentAddresses.includes(address)) {
-      await helius.editWebhook(webhook.webhookID, {
-        accountAddresses: [...currentAddresses, address],
-        webhookURL: process.env.HELIUS_WEBHOOK_URL!,
-        transactionTypes: ['TRANSFER'],
-        webhookType: 'enhanced'
-      });
-    }
-  } catch (error) {
-    console.error("Error adding address to Helius webhook:", error);
-  }
-}
 
 // Called by Helius webhook when USDC lands on any monitored address
 export async function handleSolanaPayment(

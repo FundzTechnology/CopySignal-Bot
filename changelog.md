@@ -1,3 +1,14 @@
+## [2026-04-30T06:08:00-07:00]
+### Added — Password Visibility Toggle on Login & Register Pages
+- Added a show/hide password eye icon button to the password input on both `apps/web/app/(auth)/login/page.tsx` and `apps/web/app/(auth)/register/page.tsx`. Clicking the eye icon toggles the password field between `type="password"` and `type="text"`, allowing users to verify what they typed. The eye icon uses inline SVG (no extra dependencies). The button uses `tabIndex={-1}` so it does not interfere with keyboard tab flow.
+
+## [2026-04-30T05:31:00-07:00]
+### Fixed — Helius Webhook SDK Replaced with Native Fetch
+- **Root cause:** The `helius-sdk` package has internal version conflicts (`@solana/rpc-transport-http` hitting 404, `helius.webhooks.list` not a function). All Helius calls now go directly through the native `fetch` API against `https://api.helius.xyz/v0/webhooks`.
+- **TypeScript type safety:** Added `HeliusWebhook` interface and typed all fetch responses, resolving `existingWebhooks is of type unknown` and `webhooks is of type unknown` errors.
+- **Graceful DNS error handling:** Added detection for `EAI_AGAIN` DNS errors (common on Windows localhost when the network hasn't fully resolved). Bot now logs a clear warning and continues booting instead of crashing — this is a local-only issue that does not affect Fly.io production.
+- **Refactored duplication:** Moved `addAddressToHeliusWebhook` out of `solanaPaymentSession.ts` and into `setupHeliusWebhook.ts` as a single source of truth; `solanaPaymentSession.ts` now imports it. Removed the now-unused `helius-sdk` import from `solanaPaymentSession.ts`.
+
 ## [2026-04-30T04:30:00-07:00]
 ### Critical Bug Fix — Solana Nested ATA Recovery & USDC Mint Correction
 - **Fixed `USDC_MINT` Hardcoding Bug:** Discovered that in `apps/bot/src/payments/solanaWalletDeriver.ts`, the `USDC_MINT` constant was erroneously hardcoded to the master wallet address instead of the actual Solana Mainnet USDC Mint (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`). This bug caused the bot to generate an invalid Associated Token Account (ATA) for a non-existent token and present that as the user's deposit address.
