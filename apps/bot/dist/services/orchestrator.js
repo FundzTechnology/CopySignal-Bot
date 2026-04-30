@@ -1,26 +1,42 @@
 import { db } from '../db/cocobase.js';
-import { parseSignal } from '../parser/signalParser.js';
+import { parseSignal, scoreSignal, classifyConfidence, containsTriggerKeyword } from '../parser/signalParser.js';
+import { parseManagementCommand } from '../parser/managementParser.js';
+import { getDefaultTPSelection } from '../parser/tpSelector.js';
+import { executeManagementAction } from './tradeManager.js';
 import { executeBybit } from '../executors/bybitExecutor.js';
 import { executeBinance } from '../executors/binanceExecutor.js';
 import { sendTradeAlert } from './alertBot.js';
-export async function handleSignal(rawMessage, messageId, channelDoc // Document from Cocobase 'channels' collection
-) {
+export async function handleSignal(rawMessage, messageId, channelDoc) {
     const userId = channelDoc.user_id;
-    // ── Guard: Deduplication ──────────────────────────────────
-    // Make sure we haven't already processed this exact message
+    // ── GATE 1: Deduplication ──────────────────────────────────
     const existing = await db.listDocuments("signals", {
-        filters: {
-            channel_id: channelDoc.id,
-            telegram_message_id: messageId
-        }
+        filters: { channel_id: channelDoc.id, telegram_message_id: messageId }
     });
-    if (existing.length > 0) {
-        console.log(`⚠️  Duplicate message ${messageId} — skipping`);
+    if (existing.length > 0)
+        return;
+    // ── GATE 2: Trigger Keyword Filtering ───────────────────────
+    const keyword = channelDoc.trigger_keyword;
+    if (!containsTriggerKeyword(rawMessage, keyword)) {
+        // Check if it's a management command (e.g., "HOLD TO TP2") before discarding entirely
+        const mgmt = parseManagementCommand(rawMessage, keyword);
+        if (mgmt.action) {
+            await executeManagementAction(userId, mgmt.symbol, mgmt.action, channelDoc);
+        }
+        return; // Discard non-signals
+    }
+    // ── GATE 3: Initial Parsing ─────────────────────────────────
+    const parsed = parseSignal(rawMessage);
+    // Check if it is actually a management command with the trigger keyword included
+    const mgmt = parseManagementCommand(rawMessage, keyword);
+    if (mgmt.action && !parsed.entry) {
+        await executeManagementAction(userId, mgmt.symbol, mgmt.action, channelDoc);
         return;
     }
-    // ── Step 1: Parse Signal ──────────────────────────────────
-    const parsed = parseSignal(rawMessage);
-    // ── Step 2: Store Signal in Cocobase ─────────────────────
+    // ── GATE 4: Confidence Scoring ──────────────────────────────
+    const score = scoreSignal(parsed, channelDoc);
+    parsed.confidence_score = score;
+    parsed.confidence = classifyConfidence(score);
+    // Store in DB for observability
     const signalDoc = await db.createDocument("signals", {
         channel_id: channelDoc.id,
         user_id: userId,
@@ -30,27 +46,27 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
         status: parsed.confidence === 'failed' ? 'failed' : 'parsed',
         received_at: new Date().toISOString()
     });
-    // ── Step 3: Skip Low Confidence ──────────────────────────
-    if (parsed.confidence === 'low' || parsed.confidence === 'failed') {
-        console.log(`⚠️  ${parsed.confidence} confidence — not executing`);
-        await db.updateDocument("signals", signalDoc.id, { status: 'skipped' });
+    // ── GATE 5: Quality Enforcement ─────────────────────────────
+    if (parsed.confidence === 'failed' || parsed.confidence === 'low') {
+        await db.updateDocument("signals", signalDoc.id, { status: 'skipped_quality' });
         return;
     }
-    // ── Step 4: Check User Plan ───────────────────────────────
+    if (parsed.confidence === 'medium' && !channelDoc.allow_medium_confidence) {
+        await db.updateDocument("signals", signalDoc.id, { status: 'skipped_quality' });
+        return;
+    }
+    // ── GATE 6: TP Selection Rule ───────────────────────────────
+    const tpSelection = getDefaultTPSelection(parsed.take_profits, parsed.side);
+    // ── GATE 7: Billing & API Check ─────────────────────────────
     const user = await db.auth.getUserById(userId);
-    if (user?.data?.plan === 'free') {
-        console.log(`User ${userId} on free plan — signal saved but not executed`);
-        return;
-    }
-    // ── Step 5: Get User's API Keys ───────────────────────────
+    if (user?.data?.plan === 'free')
+        return; // Must have active plan
     const apiKeys = await db.listDocuments("api_keys", {
         filters: { user_id: userId, exchange: channelDoc.exchange }
     });
-    if (!apiKeys.length) {
-        console.log(`No API keys found for user ${userId} on ${channelDoc.exchange}`);
+    if (!apiKeys.length)
         return;
-    }
-    // ── Step 6: Execute Trade ─────────────────────────────────
+    // ── EXECUTION ───────────────────────────────────────────────
     let result;
     if (channelDoc.exchange === 'bybit') {
         result = await executeBybit(apiKeys[0], parsed, channelDoc.risk_percent);
@@ -58,7 +74,7 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
     else {
         result = await executeBinance(apiKeys[0], parsed, channelDoc.risk_percent);
     }
-    // ── Step 7: Log Trade to Cocobase ────────────────────────
+    // ── RECORDING ───────────────────────────────────────────────
     await db.createDocument("trade_logs", {
         user_id: userId,
         signal_id: signalDoc.id,
@@ -69,31 +85,29 @@ export async function handleSignal(rawMessage, messageId, channelDoc // Document
         order_type: 'Market',
         qty: result.qty,
         entry_price: result.entryPrice,
-        take_profit: parsed.take_profits[0] || undefined,
+        take_profit: tpSelection.initialTP,
         stop_loss: parsed.stop_loss,
+        all_tps: tpSelection.allTPs,
+        active_tp_index: tpSelection.activeTPIndex,
         status: result.success ? 'filled' : 'error',
         error_msg: result.error || null,
         executed_at: new Date().toISOString(),
-        closed_at: null,
-        pnl: null
     });
-    // Update signal status
     await db.updateDocument("signals", signalDoc.id, {
         status: result.success ? 'executed' : 'failed'
     });
-    // ── Step 8: Alert User via Telegram ──────────────────────
+    // ── ALERT ───────────────────────────────────────────────────
     if (user?.data?.telegram_user_id && result.success) {
         await sendTradeAlert(user.data.telegram_user_id, {
             symbol: parsed.symbol,
             side: parsed.side,
             qty: result.qty,
             entry_price: result.entryPrice,
-            take_profit: parsed.take_profits[0] ?? undefined,
+            take_profit: tpSelection.initialTP,
             stop_loss: parsed.stop_loss ?? undefined,
             status: 'filled',
             exchange: channelDoc.exchange
         });
     }
-    console.log(`${result.success ? '✅' : '❌'} Trade ${result.success ? 'executed' : 'failed'}: ${parsed.symbol} ${parsed.side} | ${result.error || `Order ${result.orderId}`}`);
 }
 //# sourceMappingURL=orchestrator.js.map

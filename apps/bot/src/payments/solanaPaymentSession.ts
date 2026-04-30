@@ -1,7 +1,7 @@
 import { Connection } from '@solana/web3.js';
 import { createHelius } from 'helius-sdk';
 import { db } from '../db/cocobase.js';
-import { getDerivedUSDCAddress, sweepUSDCToMaster } from './solanaWalletDeriver.js';
+import { getDerivedSolanaWalletAddress, sweepUSDCToMaster } from './solanaWalletDeriver.js';
 import { activateSubscription } from './subscriptionManager.js';
 
 const connection = new Connection(
@@ -18,7 +18,7 @@ export async function createPaymentSession(
   plan: 'starter' | 'pro'
 ): Promise<{ address: string; expiresAt: string; sessionId: string }> {
 
-  const usdcAddress = await getDerivedUSDCAddress(userIndex, connection);
+  const walletAddress = await getDerivedSolanaWalletAddress(userIndex);
   const expiresAt = new Date(Date.now() + SESSION_EXPIRY_HOURS * 60 * 60 * 1000);
 
   // Save session to Cocobase
@@ -26,7 +26,7 @@ export async function createPaymentSession(
     user_id: userId,
     user_index: userIndex,
     plan,
-    solana_usdc_address: usdcAddress,
+    solana_usdc_address: walletAddress, // DB field still called this, but now stores base wallet
     amount_expected: plan === 'starter' ? 29 : 79,
     status: 'pending',          // 'pending' | 'confirmed' | 'expired' | 'failed'
     chain: 'solana',
@@ -35,10 +35,10 @@ export async function createPaymentSession(
   });
 
   // Register this address with Helius webhook
-  await addAddressToHeliusWebhook(usdcAddress);
+  await addAddressToHeliusWebhook(walletAddress);
 
   return {
-    address: usdcAddress,
+    address: walletAddress,
     expiresAt: expiresAt.toISOString(),
     sessionId: session.id
   };
@@ -80,11 +80,10 @@ export async function handleSolanaPayment(
   });
   if (existing.length > 0) return; // Already processed
 
-  // ── Find matching payment session ──
+  // ── Find matching payment session to identify the user ──
   const sessions = await db.listDocuments("payment_sessions", {
     filters: {
-      solana_usdc_address: toAddress,
-      status: 'pending'
+      solana_usdc_address: toAddress
     }
   });
 
@@ -97,21 +96,46 @@ export async function handleSolanaPayment(
       tx_signature: txSignature,
       received_at: new Date().toISOString()
     });
+    console.log(`⚠️ Unmatched payment to ${toAddress}. Cannot sweep because user is unknown.`);
     return;
   }
 
+  // Sort by created_at descending (latest session first)
+  sessions.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const session = sessions[0] as any;
+  const userIndex = session.user_index;
 
-  // ── Verify amount is close enough (allow ±$0.50 for rounding) ──
+  // If the session was already confirmed from a previous transaction, this is a duplicate or extra payment.
+  // We still sweep it below, but we don't re-activate the subscription.
+  if (session.status === 'confirmed' || session.status === 'confirmed_late') {
+    try {
+      await sweepUSDCToMaster(userIndex, connection);
+      console.log(`✅ Swept extra payment from user ${userIndex} to master.`);
+    } catch (e) {
+      console.error(`Error sweeping extra payment for user ${userIndex}`, e);
+    }
+    return;
+  }
+
+  // ── We MUST sweep any funds received in this wallet to the master wallet ──
+  // Do this early so even if it fails validation, we still sweep.
+  let txSignatureSwept = null;
+  try {
+    txSignatureSwept = await sweepUSDCToMaster(userIndex, connection);
+  } catch (e) {
+    console.error(`Error sweeping for user ${userIndex}`, e);
+  }
+
+  // ── Verify amount is close enough (allow ±$1.00 for rounding/fees) ──
   const expectedAmount = session.amount_expected;
   const diff = Math.abs(amountUSDC - expectedAmount);
-  if (diff > 0.5) {
+  if (diff > 1.0) {
     await db.updateDocument("payment_sessions", session.id, {
       status: 'wrong_amount',
       received_amount: amountUSDC,
       tx_signature: txSignature
     });
-    console.log(`⚠️ Wrong amount: expected $${expectedAmount}, got $${amountUSDC} for session ${session.id}`);
+    console.log(`⚠️ Wrong amount: expected $${expectedAmount}, got $${amountUSDC} for session ${session.id}. Funds swept to master.`);
     return;
   }
 
@@ -130,7 +154,7 @@ export async function handleSolanaPayment(
       txSignature,
       chain: 'solana'
     });
-    console.log(`✅ Late Payment confirmed for user ${session.user_id} — ${session.plan} activated`);
+    console.log(`✅ Late Payment confirmed for user ${session.user_id} — ${session.plan} activated. Funds swept.`);
     return;
   }
 
@@ -151,8 +175,5 @@ export async function handleSolanaPayment(
     chain: 'solana'
   });
 
-  // ── Sweep funds to master wallet ──
-  await sweepUSDCToMaster(session.user_index, connection);
-
-  console.log(`✅ Payment confirmed for user ${session.user_id} — ${session.plan} activated`);
+  console.log(`✅ Payment confirmed for user ${session.user_id} — ${session.plan} activated. Funds swept.`);
 }

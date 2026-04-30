@@ -1,6 +1,7 @@
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage } from "telegram/events/index.js";
+import { bufferMessage } from "../parser/messageBuffer.js";
 import * as dotenv from "dotenv";
 dotenv.config();
 const apiId = parseInt(process.env.TELEGRAM_API_ID);
@@ -15,31 +16,32 @@ class TelegramListener {
     async connect() {
         await this.client.connect();
         console.log("✅ Telegram client connected");
-        // Single handler for ALL messages — routes to the right channel callback
         this.client.addEventHandler(async (event) => {
             const message = event.message;
-            if (!message?.text || message.text.trim().length < 10)
+            if (!message?.text)
                 return;
             const chat = await event.getChat();
             if (!chat)
                 return;
-            // Build identifiers for this chat
+            const senderId = String(message.senderId || 'unknown');
             const chatId = String(chat.id);
             const username = chat.username ? `@${chat.username}` : null;
-            // Check if any of our registered channels match
-            for (const [channelKey, callback] of this.activeChannels.entries()) {
+            const messageId = String(message.id);
+            for (const [channelKey, channelData] of this.activeChannels.entries()) {
                 if (chatId === channelKey ||
                     (username && username.toLowerCase() === channelKey.toLowerCase())) {
-                    console.log(`📨 New message from ${channelKey}`);
-                    callback(message.text, String(message.id));
+                    console.log(`📨 New message buffering from ${channelKey}`);
+                    bufferMessage(channelKey, senderId, message.text, messageId, channelData.bufferWindowMs, (combinedText, messageIds) => {
+                        // Pass the combined text and the first message ID as the deduplication key
+                        channelData.callback(combinedText, messageIds[0]);
+                    });
                     break;
                 }
             }
         }, new NewMessage({}));
     }
-    // Called when a user adds a new channel to watch
-    addChannel(channelIdentifier, onMessage) {
-        this.activeChannels.set(channelIdentifier, onMessage);
+    addChannel(channelIdentifier, onMessage, bufferWindowMs) {
+        this.activeChannels.set(channelIdentifier, { callback: onMessage, bufferWindowMs });
         console.log(`📡 Now listening: ${channelIdentifier}`);
     }
     removeChannel(channelIdentifier) {
@@ -50,6 +52,5 @@ class TelegramListener {
         return Array.from(this.activeChannels.keys());
     }
 }
-// Export singleton — one process handles all users' channels
 export const telegramListener = new TelegramListener();
 //# sourceMappingURL=telegramListener.js.map

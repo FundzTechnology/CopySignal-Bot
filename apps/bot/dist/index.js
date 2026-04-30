@@ -16,11 +16,13 @@ import { db } from './db/cocobase.js';
 import { startSuiWatcher } from './payments/suiWatcher.js';
 import { ensureHeliusWebhook } from './payments/setupHeliusWebhook.js';
 import solanaWebhookRouter from './payments/solanaWebhook.js';
+import paymentsApi from './payments/api.js';
 import { runDailySubscriptionCheck } from './jobs/dailySubscriptionCheck.js';
+import { cleanExpiredPaymentSessions } from './jobs/cleanExpiredSessions.js';
 const PORT = parseInt(process.env.PORT || '3001');
 async function boot() {
     console.log('🚀 CopySignal Bot starting...');
-    // ── Express Server (Webhooks + Health) ──────────────────────
+    // ── Express Server (Webhooks + Health + APIs) ─────────────────
     const app = express();
     app.use(express.json());
     // Rate-limit all webhook routes
@@ -35,6 +37,8 @@ async function boot() {
     app.get('/health', (_req, res) => {
         res.json({ status: 'ok', uptime: process.uptime() });
     });
+    // REST APIs for Web Dashboard
+    app.use('/api/payments', paymentsApi);
     // Solana USDC payment webhook (from Helius)
     app.use('/', solanaWebhookRouter);
     app.listen(PORT, () => {
@@ -51,7 +55,7 @@ async function boot() {
         const chanId = channel.telegram_channel_id || channel.channel_username;
         telegramListener.addChannel(chanId, (message, messageId) => {
             handleSignal(message, messageId, channel);
-        });
+        }, channel.buffer_window_seconds);
     }
     // Watch for new channels being added or removed in real time
     const channelWatcher = db.realtime.collection('channels');
@@ -61,7 +65,7 @@ async function boot() {
             console.log(`🆕 New channel added: ${event.data.channel_name}`);
             telegramListener.addChannel(event.data.telegram_channel_id || event.data.channel_username, (message, messageId) => {
                 handleSignal(message, messageId, event.data);
-            });
+            }, event.data.buffer_window_seconds);
         }
     });
     channelWatcher.onUpdate((event) => {
@@ -79,6 +83,10 @@ async function boot() {
     // Runs at 00:00 UTC every day
     cron.schedule('0 0 * * *', () => {
         runDailySubscriptionCheck().catch(console.error);
+    });
+    // Runs every hour to clean expired sessions
+    cron.schedule('0 * * * *', () => {
+        cleanExpiredPaymentSessions().catch(console.error);
     });
     console.log('✅ Bot is fully running. Waiting for signals...');
 }

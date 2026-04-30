@@ -7,13 +7,12 @@ import {
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
 
-const USDC_MINT = new PublicKey('DSgSbuu4J4tDFjo7qb98TjtNeDwMHH68CwiKZi66P3Y3');
-const MASTER_MNEMONIC = process.env.SOLANA_MASTER_MNEMONIC!;
-const MASTER_WALLET = process.env.SOLANA_MASTER_WALLET ? new PublicKey(process.env.SOLANA_MASTER_WALLET) : null;
+const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
 // Derive a unique keypair for a given user index
 // userIndex is a stable integer assigned to each user (e.g., sequential DB ID)
 export function deriveSolanaKeypair(userIndex: number): Keypair {
+  const MASTER_MNEMONIC = process.env.SOLANA_MASTER_MNEMONIC;
   if (!MASTER_MNEMONIC) {
     throw new Error("SOLANA_MASTER_MNEMONIC is not defined in environment variables.");
   }
@@ -27,20 +26,13 @@ export function deriveSolanaKeypair(userIndex: number): Keypair {
   return Keypair.fromSeed(derived.key);
 }
 
-// Get the USDC token account address for a derived keypair
-export async function getDerivedUSDCAddress(
-  userIndex: number,
-  connection: Connection
+// Get the base Solana wallet address for a user.
+// We give users this base address so standard wallets (like Phantom) correctly route tokens to the ATA.
+export async function getDerivedSolanaWalletAddress(
+  userIndex: number
 ): Promise<string> {
   const keypair = deriveSolanaKeypair(userIndex);
-
-  // Get the Associated Token Account for USDC at this keypair's address
-  const ata = await getAssociatedTokenAddress(
-    USDC_MINT,
-    keypair.publicKey
-  );
-
-  return ata.toString();
+  return keypair.publicKey.toString();
 }
 
 // Sweep USDC from a user's derived wallet to your master wallet
@@ -49,16 +41,24 @@ export async function sweepUSDCToMaster(
   userIndex: number,
   connection: Connection
 ): Promise<string | null> {
-  if (!MASTER_WALLET) {
+  const MASTER_WALLET_ENV = process.env.SOLANA_MASTER_WALLET;
+  if (!MASTER_WALLET_ENV) {
     console.error("SOLANA_MASTER_WALLET not set. Cannot sweep funds.");
     return null;
   }
+  const MASTER_WALLET = new PublicKey(MASTER_WALLET_ENV);
   const userKeypair = deriveSolanaKeypair(userIndex);
   const userATA = await getAssociatedTokenAddress(USDC_MINT, userKeypair.publicKey);
   const masterATA = await getAssociatedTokenAddress(USDC_MINT, MASTER_WALLET);
 
-  // Check balance
+  // Check balance safely
   try {
+    const accountInfo = await connection.getAccountInfo(userATA);
+    if (!accountInfo) {
+      // Account doesn't exist (uninitialized) -> 0 balance
+      return null;
+    }
+
     const balance = await connection.getTokenAccountBalance(userATA);
     const amount = balance.value.amount; // Raw amount in smallest units (6 decimals for USDC)
     if (parseInt(amount) === 0) return null;

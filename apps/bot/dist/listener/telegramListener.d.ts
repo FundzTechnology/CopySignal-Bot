@@ -3,7 +3,7 @@ declare class TelegramListener {
     private activeChannels;
     constructor();
     connect(): Promise<void>;
-    addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string) => void): void;
+    addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string) => void, bufferWindowMs?: number): void;
     removeChannel(channelIdentifier: string): void;
     getActiveChannels(): string[];
 }
