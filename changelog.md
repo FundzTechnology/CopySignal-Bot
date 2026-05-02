@@ -1,3 +1,30 @@
+## [2026-05-02T11:49:00-07:00]
+### Fixed — Billing 500 Error, Session Persistence, Subscription Warning Dismiss
+
+#### 1. Fixed `/api/billing/session` 500 Error (Both SUI & Solana)
+- **Root Cause:** The `apps/web/app/api/billing/session/route.ts` was proxying all wallet generation requests to `http://localhost:3001` (the bot engine). On Vercel (serverless), there is no bot engine running at localhost, causing every request to fail with a network error and return a 500.
+- **Fix:** Rewrote `apps/web/app/api/billing/session/route.ts` to derive wallet addresses **directly** using the same BIP44 HD wallet logic as the bot engine. The master mnemonics (`SOLANA_MASTER_MNEMONIC`, `SUI_MASTER_MNEMONIC`) are now read from Vercel environment variables at request time. No bot engine proxy is needed.
+- **Why this works:** Vercel API routes run in Node.js (not edge), so they can use `bip39`, `ed25519-hd-key`, `@solana/web3.js`, and `@mysten/sui.js` natively.
+- **Installed new deps in `apps/web`:** `bip39`, `ed25519-hd-key`, `@solana/web3.js`, `@mysten/sui.js` (same versions as bot engine).
+- **Updated `apps/web/next.config.ts`:** Added `serverExternalPackages` array listing all crypto packages so Next.js webpack does not attempt to bundle them (they rely on native Node.js APIs like `Buffer` and `crypto`).
+- **Vercel Action Required:** You must add `SOLANA_MASTER_MNEMONIC` and `SUI_MASTER_MNEMONIC` as environment variables in the Vercel dashboard (Settings → Environment Variables) matching the values in your bot's `.env`.
+- **Local Dev Action Taken:** I have just added `SOLANA_MASTER_MNEMONIC` and `SUI_MASTER_MNEMONIC` to your local `apps/web/.env.local` file so that generating a wallet works locally now.
+- **Session save:** The route now also saves a `payment_sessions` record in Cocobase so the bot watcher can still detect and confirm payments.
+- **Error messages:** Improved user-facing error messages — if mnemonics are missing, users see "Payment service is not configured yet. Please contact support." instead of a raw stack trace.
+
+#### 2. Fixed — Subscription Warning Banner Now Dismissible
+- **Updated `apps/web/components/SubscriptionWarningCard.tsx`:** Added a styled `×` close button at the top-right corner of the warning card. When clicked, the card slides out and the dismissed state is stored in `sessionStorage` (`sub_warning_dismissed = true`). The card will not reappear during the same browser session but will show again after a fresh login.
+- Added a smooth `slideInLeft` CSS animation for a polished feel.
+- The color of the close button matches the urgency level (red/orange/yellow) to stay visually coherent.
+
+#### 3. Fixed — Logout on Page Refresh (Session Persistence + 15-min Inactivity Timeout)
+- **Root Cause:** `apps/web/hooks/useAuth.ts` called `db.auth.getCurrentUser()` on every mount. If Cocobase's token was not persisted between page loads (e.g., stored in memory or the SDK re-initializes), the call returned `null`, logging the user out on every refresh.
+- **Fix:** Completely rewrote `apps/web/hooks/useAuth.ts` with a two-layer session strategy:
+  1. **Layer 1 — `localStorage` persistence:** On successful login/register, the user object is saved to `localStorage` under the key `copysignal_session`. On mount, the hook immediately restores this cached user (no flash, no flicker), then validates it silently in the background via `db.auth.getCurrentUser()`.
+  2. **Layer 2 — Inactivity timeout:** After login, a 15-minute countdown starts. It resets on any real user activity: `mousemove`, `mousedown`, `keydown`, `touchstart`, `scroll`, `click`. If the user does nothing for 15 minutes, they are automatically logged out and redirected to `/login`. Navigating between pages or scrolling all count as activity.
+  3. **Background validation:** If the background `getCurrentUser()` call returns `null` (token expired server-side), the `localStorage` cache is cleared and the user is redirected to `/login`.
+  4. **Network resilience:** If the background validation fails due to a network error, the cached session is kept alive — the user stays logged in.
+
 ## [2026-04-30T06:08:00-07:00]
 ### Added — Password Visibility Toggle on Login & Register Pages
 - Added a show/hide password eye icon button to the password input on both `apps/web/app/(auth)/login/page.tsx` and `apps/web/app/(auth)/register/page.tsx`. Clicking the eye icon toggles the password field between `type="password"` and `type="text"`, allowing users to verify what they typed. The eye icon uses inline SVG (no extra dependencies). The button uses `tabIndex={-1}` so it does not interfere with keyboard tab flow.

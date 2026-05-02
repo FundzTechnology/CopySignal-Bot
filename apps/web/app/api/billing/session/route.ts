@@ -1,6 +1,40 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/cocobase';
 
+// ─── Lazy imports for HD wallet derivation ────────────────────────────────────
+// We derive addresses directly here so this API works on Vercel (serverless)
+// without needing a running bot engine at localhost:3001.
+
+async function deriveSolanaAddress(userIndex: number): Promise<string> {
+  const bip39 = await import('bip39');
+  const { derivePath } = await import('ed25519-hd-key');
+  const { Keypair } = await import('@solana/web3.js');
+
+  const mnemonic = process.env.SOLANA_MASTER_MNEMONIC;
+  if (!mnemonic) throw new Error('SOLANA_MASTER_MNEMONIC env var is not set.');
+
+  const seed = bip39.mnemonicToSeedSync(mnemonic);
+  const path = `m/44'/501'/${userIndex}'/0'`;
+  const derived = derivePath(path, seed.toString('hex'));
+  const keypair = Keypair.fromSeed(derived.key);
+  return keypair.publicKey.toString();
+}
+
+async function deriveSuiAddress(userIndex: number): Promise<string> {
+  const bip39 = await import('bip39');
+  const { derivePath } = await import('ed25519-hd-key');
+  const { Ed25519Keypair } = await import('@mysten/sui.js/keypairs/ed25519');
+
+  const mnemonic = process.env.SUI_MASTER_MNEMONIC;
+  if (!mnemonic) throw new Error('SUI_MASTER_MNEMONIC env var is not set.');
+
+  const seed = bip39.mnemonicToSeedSync(mnemonic);
+  const path = `m/44'/784'/${userIndex}'/0'/0'`;
+  const derived = derivePath(path, seed.toString('hex'));
+  const keypair = Ed25519Keypair.fromSecretKey(derived.key);
+  return keypair.getPublicKey().toSuiAddress();
+}
+
 export async function POST(req: Request) {
   try {
     const { userId, chain, plan } = await req.json();
@@ -9,39 +43,66 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const user = await (db.auth as any).getUserById(userId);
-    if (!user || !user.data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    // ── Fetch user to get their HD wallet index ──────────────────────────────
+    let userIndex: number;
+    try {
+      const user = await (db.auth as any).getUserById(userId);
+      if (!user || !user.data) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      userIndex = user.data.user_index;
+      if (userIndex === undefined || userIndex === null) {
+        return NextResponse.json({ error: 'User missing HD wallet index. Please contact support.' }, { status: 400 });
+      }
+    } catch (dbErr: any) {
+      console.error('Failed to fetch user from DB:', dbErr);
+      return NextResponse.json({ error: 'Could not verify user account.' }, { status: 500 });
     }
 
-    const userIndex = user.data.user_index;
-    if (userIndex === undefined || userIndex === null) {
-      return NextResponse.json({ error: 'User missing HD wallet index' }, { status: 400 });
+    // ── Derive wallet address based on chain ─────────────────────────────────
+    let address: string;
+    try {
+      if (chain === 'solana') {
+        address = await deriveSolanaAddress(userIndex);
+      } else if (chain === 'sui') {
+        address = await deriveSuiAddress(userIndex);
+      } else {
+        return NextResponse.json({ error: 'Invalid chain. Use "solana" or "sui".' }, { status: 400 });
+      }
+    } catch (derivErr: any) {
+      console.error('Wallet derivation failed:', derivErr.message);
+      // Provide a more actionable error message in production
+      const msg = derivErr.message.includes('env var')
+        ? 'Payment service is not configured yet. Please contact support.'
+        : 'Failed to generate wallet. Please try again.';
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
-    // Call the bot engine's REST API or generate it here directly?
-    // Since the web dashboard doesn't have the master seed (it's in apps/bot),
-    // we should really proxy this request to the bot API, or we can just fetch it from DB if we know what to do.
-    // Wait, apps/web shouldn't hold the master mnemonic.
-    // In our PRD, the web app calls the bot's REST API endpoint.
-    
-    const botUrl = process.env.BOT_URL || 'http://localhost:3001';
-    const response = await fetch(`${botUrl}/api/payments/session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, userIndex, chain, plan })
-    });
+    // ── Create a 2-hour payment session record in Cocobase ───────────────────
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const amountExpected = plan === 'starter' ? 29.5 : 79.5;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Bot returned ${response.status}: ${errorText}`);
+    try {
+      await db.createDocument('payment_sessions', {
+        user_id: userId,
+        user_index: userIndex,
+        plan,
+        chain,
+        [`${chain}_address`]: address,
+        amount_expected: amountExpected,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      });
+    } catch (sessionErr: any) {
+      // Non-fatal: the address is still valid even if session save fails
+      console.warn('Could not save payment session to DB:', sessionErr.message);
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
-    
+    return NextResponse.json({ address, expiresAt, chain, plan });
+
   } catch (error: any) {
     console.error('Session generation failed:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

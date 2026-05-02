@@ -1,6 +1,16 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // These packages use native Node.js APIs (Buffer, crypto, etc.) and must
+  // be treated as external so Next.js doesn't try to bundle them for the edge.
+  serverExternalPackages: [
+    'bip39',
+    'ed25519-hd-key',
+    '@solana/web3.js',
+    '@mysten/sui.js',
+    '@solana/spl-token',
+  ],
+
   images: {
     remotePatterns: [
       {
