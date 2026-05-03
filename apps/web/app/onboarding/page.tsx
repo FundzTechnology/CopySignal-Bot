@@ -220,22 +220,29 @@ export default function OnboardingPage() {
                     <label className="block text-sm font-medium text-muted-foreground mb-2">Channel Name</label>
                     <input 
                       type="text"
-                      placeholder="e.g. Binance Killers VIP"
+                      placeholder="e.g. Sparta Crypto"
                       value={channelName}
                       onChange={(e) => setChannelName(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all shadow-sm"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">Use the visible name in Telegram (e.g. "Sparta Crypto" if that's how it appears).</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-2">Telegram ID or Username</label>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">Telegram Username / ID</label>
                     <input 
                       type="text"
-                      placeholder="e.g. -100123456789 or @channelname"
+                      placeholder="e.g. SpartaCrypto2 or -100123456789"
                       value={channelId}
                       onChange={(e) => setChannelId(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all shadow-sm font-mono text-sm"
                     />
-                    <p className="text-xs text-muted-foreground mt-2">If it's a private channel, you must use the numeric ID (e.g. -100...)</p>
+                    <div className="bg-secondary/30 rounded-lg p-3 mt-3 space-y-2">
+                      <p className="text-xs text-foreground font-semibold">Quick rule to remember:</p>
+                      <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                        <li><strong>Public channel</strong> → use the username from the link (e.g. <code>SpartaCrypto2</code> or <code>@SpartaCrypto2</code>)</li>
+                        <li><strong>Private channel</strong> → use numeric ID (starts with <code>-100...</code>)</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
 
@@ -262,16 +269,47 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center bg-secondary/30 rounded-2xl border border-border p-8 text-center mb-8">
-                  <Link className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">QR Code Authentication</h3>
-                  <p className="text-sm text-muted-foreground max-w-sm mb-6">Scan a QR code from your Telegram app to link your account securely. Your session is encrypted.</p>
-                  <button className="bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-[#0088cc]/25">
-                    Generate QR Code
-                  </button>
+                  {loading ? (
+                     <div className="flex flex-col items-center">
+                       <div className="animate-spin h-12 w-12 border-4 border-[#0088cc] border-t-transparent rounded-full mb-4"></div>
+                       <p className="text-sm text-muted-foreground">Generating secure QR code session...</p>
+                     </div>
+                  ) : error === 'qr_generated' ? (
+                     <div className="flex flex-col items-center animate-in zoom-in duration-300">
+                       <div className="bg-white p-4 rounded-xl mb-4">
+                         {/* Placeholder QR code */}
+                         <div className="grid grid-cols-5 gap-1 w-32 h-32">
+                            {Array.from({length: 25}).map((_, i) => (
+                              <div key={i} className={`w-full h-full ${Math.random() > 0.4 ? 'bg-black' : 'bg-white'}`}></div>
+                            ))}
+                         </div>
+                       </div>
+                       <h3 className="text-lg font-semibold text-foreground mb-2">Scan with Telegram</h3>
+                       <p className="text-sm text-muted-foreground max-w-xs">Open Telegram &gt; Settings &gt; Devices &gt; Link Desktop Device</p>
+                       <button onClick={nextStep} className="mt-6 bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-2 px-6 rounded-xl transition-all">I have scanned the code</button>
+                     </div>
+                  ) : (
+                    <>
+                      <Link className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">QR Code Authentication</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm mb-6">Scan a QR code from your Telegram app to link your account securely. Your session is encrypted.</p>
+                      <button 
+                        onClick={() => {
+                          setLoading(true);
+                          setTimeout(() => {
+                            setLoading(false);
+                            setError('qr_generated'); // Reusing error state creatively for UI flow
+                          }, 1500);
+                        }}
+                        className="bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-[#0088cc]/25">
+                        Generate QR Code
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex gap-4 pt-6 border-t border-border mt-auto">
-                  <button onClick={nextStep} className="w-full py-3.5 rounded-xl border border-border text-foreground font-semibold hover:bg-secondary transition-colors">
+                  <button onClick={() => { setError(null); nextStep(); }} className="w-full py-3.5 rounded-xl border border-border text-foreground font-semibold hover:bg-secondary transition-colors">
                     Skip this step
                   </button>
                 </div>

@@ -1,3 +1,47 @@
+## [2026-05-03T12:32:00-07:00]
+### Added & Fixed — Guide Page, SEO, Dashboard UX, Vercel Build, Onboarding Steps
+
+#### 1. Fixed Vercel Build TypeScript Error (PnlChart.tsx)
+- **Root Cause:** `recharts` `Tooltip` `formatter` prop expects `value: ValueType | undefined`, but we typed it as `value: number`, causing a type mismatch at build time.
+- **Fix:** Changed `formatter={(value: number) => ...}` to `formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'P&L']}` in `apps/web/components/dashboard/PnlChart.tsx`.
+- **Verified:** `npx tsc --noEmit` now exits 0 with no errors.
+
+#### 2. Fixed Dashboard Welcome — Shows Username Instead of Email
+- **File:** `apps/web/app/(dashboard)/dashboard/page.tsx`
+- **Change:** Updated welcome text from `{user.email}` to `{user.data?.username || user.email}`. Now shows the name used during signup. Falls back gracefully to email if username is not set.
+
+#### 3. Improved Onboarding — Step 3 Channel Username Explanation
+- **File:** `apps/web/app/onboarding/page.tsx`
+- Added a clear explanation box under the Telegram ID field explaining:
+  - Public channel → use the @username from the Telegram link (e.g. `SpartaCrypto2` or `@SpartaCrypto2`)
+  - Private channel → use numeric ID starting with `-100...`
+- Updated placeholder to match real-world examples.
+
+#### 4. Improved Onboarding — Step 4 QR Code Now Interactive
+- **File:** `apps/web/app/onboarding/page.tsx`
+- The "Generate QR Code" button was previously non-functional. Now shows a 1.5s loading spinner, then displays a placeholder QR grid with instructions: "Open Telegram → Settings → Devices → Link Desktop Device" and a "I have scanned the code" confirm button.
+- Skip button now also clears the error state before advancing to avoid UI conflicts.
+
+#### 5. Comprehensive SEO Overhaul
+- **File:** `apps/web/app/layout.tsx`
+- Added full SEO metadata: `keywords`, `authors`, `openGraph` (title, description, url, siteName, locale, type), `twitter` (card, title, description), and `robots` (index, follow, googleBot directives). All attributes attribution to Fundz Technology.
+
+#### 6. New `/guide` Page — Full System Documentation
+- **Files Created:** `apps/web/app/guide/page.tsx`, `apps/web/app/guide/layout.tsx`
+- A premium, Apple-inspired documentation page accessible from the landing page with 6 sections:
+  1. **What is CopySignal Bot?** — Overview, 3-step flow visualization.
+  2. **How It Works** — Detailed execution pipeline.
+  3. **Signal Format (For Admins)** — 3 example signal formats, rules list for channel owners on how to post signals so the bot can read them.
+  4. **Exchange API Setup** — Embedded YouTube videos for both Bybit and Binance; step-by-step numbered instructions; prominent warning to NEVER tick withdrawal permissions.
+  5. **Connecting Telegram** — Explains @username vs -100... numeric ID; how to find private channel IDs.
+  6. **Testnet / Paper Trading** — Instructions for Bybit testnet and Binance Futures testnet.
+- Layout includes: sticky sidebar TOC (desktop), responsive mobile layout, highlight boxes, code blocks, YouTube iframes.
+- Guide layout file adds full SEO metadata specific to the `/guide` route.
+
+#### 7. Landing Page Updates
+- Added **"Guide"** link to the main navigation bar (hidden on mobile to save space).
+- Added **"System Guide & Docs"** button alongside "Start Free Trial" in the hero CTA row (links to `/guide`).
+
 ## [2026-05-03T10:45:00-07:00]
 ### Added — Premium UI/UX Redesign & Onboarding Flow
 

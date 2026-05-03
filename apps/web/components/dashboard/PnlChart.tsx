@@ -69,7 +69,7 @@ export default function PnlChart({ trades }: { trades: any[] }) {
             <Tooltip 
               contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff' }}
               itemStyle={{ color: '#60a5fa' }}
-              formatter={(value: number) => [`$${value.toFixed(2)}`, 'P&L']}
+              formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'P&L']}
             />
             <Area 
               type="monotone" 

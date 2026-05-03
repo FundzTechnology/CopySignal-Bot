@@ -14,6 +14,9 @@ export default function LandingPage() {
             <span className="font-bold text-foreground tracking-tight text-lg">CopySignal Bot</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/guide" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline-flex">
+              Guide
+            </Link>
             <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Sign In
             </Link>
@@ -50,12 +53,15 @@ export default function LandingPage() {
                 Instantly copy trades from premium Telegram signal channels directly to your Bybit or Binance account. Never miss a setup while you sleep.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 flex-wrap">
                 <Link href="/register" className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)] hover:scale-105 active:scale-95">
                   Start 5-Day Free Trial
                   <ArrowRight className="h-5 w-5" />
                 </Link>
-                <a href="#demo" className="inline-flex items-center justify-center gap-2 bg-secondary text-secondary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-secondary/80 transition-all border border-border">
+                <Link href="/guide" className="inline-flex items-center justify-center gap-2 bg-secondary text-secondary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-secondary/80 transition-all border border-border">
+                  System Guide & Docs
+                </Link>
+                <a href="#demo" className="inline-flex items-center justify-center gap-2 bg-secondary/50 text-secondary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-secondary/80 transition-all border border-border">
                   View Live Demo
                 </a>
               </div>

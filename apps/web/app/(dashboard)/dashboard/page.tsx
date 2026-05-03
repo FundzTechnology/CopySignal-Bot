@@ -85,7 +85,7 @@ export default function DashboardPage() {
 
       <div>
         <h1 className="text-3xl font-bold mb-1 tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Welcome back, {user.email}</p>
+        <p className="text-muted-foreground text-sm">Welcome back, {user.data?.username || user.email}</p>
       </div>
 
       {/* Stats Cards — real data from Cocobase */}
