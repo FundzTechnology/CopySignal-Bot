@@ -53,7 +53,12 @@ export default function BillingPage() {
       const res = await fetch('/api/billing/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, chain: selectedChain, plan: selectedPlan })
+        body: JSON.stringify({ 
+          userId: user.id, 
+          userIndex: user.data?.user_index,
+          chain: selectedChain, 
+          plan: selectedPlan 
+        })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);

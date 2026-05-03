@@ -37,26 +37,14 @@ async function deriveSuiAddress(userIndex: number): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const { userId, chain, plan } = await req.json();
+    const { userId, userIndex, chain, plan } = await req.json();
 
     if (!userId || !chain || !plan) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    // ── Fetch user to get their HD wallet index ──────────────────────────────
-    let userIndex: number;
-    try {
-      const user = await (db.auth as any).getUserById(userId);
-      if (!user || !user.data) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-      userIndex = user.data.user_index;
-      if (userIndex === undefined || userIndex === null) {
-        return NextResponse.json({ error: 'User missing HD wallet index. Please contact support.' }, { status: 400 });
-      }
-    } catch (dbErr: any) {
-      console.error('Failed to fetch user from DB:', dbErr);
-      return NextResponse.json({ error: 'Could not verify user account.' }, { status: 500 });
+    if (userIndex === undefined || userIndex === null) {
+      return NextResponse.json({ error: 'User missing HD wallet index. Please contact support.' }, { status: 400 });
     }
 
     // ── Derive wallet address based on chain ─────────────────────────────────

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/cocobase';
+import { Plus, Trash2, Hash, Rss, Activity, ShieldAlert } from 'lucide-react';
 
 interface Channel {
   id: string;
@@ -30,7 +31,6 @@ export default function ChannelsPage() {
       const res = await db.listDocuments('channels', {
         filters: { user_id: user.id }
       });
-      // Handle the fact that Cocobase returns `{ data: {...}, id: ... }` wrappers
       const mapped = res.map((r: any) => ({
         id: r.id,
         ...r.data,
@@ -82,84 +82,129 @@ export default function ChannelsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-10">
       <div>
-        <h1 className="text-2xl font-bold text-white">Monitored Channels</h1>
-        <p className="text-zinc-400 text-sm mt-1">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Monitored Channels</h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Add Telegram channels to listen to for trading signals.
         </p>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-        <h2 className="text-lg font-bold text-white mb-4">Add New Channel</h2>
-        <form onSubmit={handleAddChannel} className="space-y-4">
+      <div className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+          <Plus className="h-5 w-5 text-primary" />
+          Add New Channel
+        </h2>
+        <form onSubmit={handleAddChannel} className="space-y-6">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-5 py-4 rounded-xl text-sm flex items-center gap-3">
+              <ShieldAlert className="h-5 w-5 shrink-0" />
               {error}
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-zinc-400 text-sm mb-1">Channel Name</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. Binance Killers VIP"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-muted-foreground text-sm font-medium">Channel Name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                  <Rss className="h-4 w-4" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Binance Killers VIP"
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3.5 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-zinc-400 text-sm mb-1">Telegram ID or Username</label>
-              <input
-                type="text"
-                required
-                value={telegramId}
-                onChange={e => setTelegramId(e.target.value)}
-                placeholder="e.g. -100123456789 or @channelname"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
-              />
+            <div className="space-y-2">
+              <label className="block text-muted-foreground text-sm font-medium">Telegram ID or Username</label>
+              <div className="relative">
+                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                   <Hash className="h-4 w-4" />
+                 </div>
+                <input
+                  type="text"
+                  required
+                  value={telegramId}
+                  onChange={e => setTelegramId(e.target.value)}
+                  placeholder="e.g. -100123456789 or @channelname"
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3.5 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
             </div>
           </div>
           <button
             type="submit"
             disabled={submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-xl transition"
+            className="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-3.5 px-8 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center gap-2 w-full md:w-auto justify-center"
           >
-            {submitting ? 'Adding...' : 'Add Channel'}
+            {submitting ? (
+              <>
+                 <Activity className="h-4 w-4 animate-pulse" /> Adding...
+              </>
+            ) : (
+              <>
+                 <Plus className="h-4 w-4" /> Add Channel
+              </>
+            )}
           </button>
         </form>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-zinc-800">
-          <h2 className="text-lg font-bold text-white">Your Channels</h2>
-        </div>
+      <div className="space-y-6">
+        <h2 className="text-xl font-bold text-foreground">Your Channels</h2>
         
         {loading ? (
-          <div className="p-6 text-zinc-500 text-center animate-pulse">Loading channels...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {[1, 2, 3].map(i => (
+               <div key={i} className="bg-card border border-border rounded-3xl p-6 h-40 animate-pulse" />
+             ))}
+          </div>
         ) : channels.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-zinc-500">You are not monitoring any channels yet.</p>
+          <div className="bg-card border border-border rounded-3xl p-12 text-center flex flex-col items-center justify-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center">
+              <Rss className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-foreground font-semibold text-lg">No channels monitored</p>
+              <p className="text-muted-foreground max-w-sm mt-1">You are not monitoring any channels yet. Add one above to start listening for signals.</p>
+            </div>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {channels.map(channel => (
-              <div key={channel.id} className="p-6 flex items-center justify-between hover:bg-zinc-800/50 transition">
+              <div key={channel.id} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+                {/* Decorative background element */}
+                <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors pointer-events-none" />
+                
                 <div>
-                  <h3 className="font-bold text-white">{channel.name}</h3>
-                  <code className="text-zinc-500 text-sm mt-1 font-mono">{channel.telegram_id}</code>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-bold text-foreground text-lg truncate pr-4">{channel.name}</h3>
+                    <div className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider shrink-0 border ${channel.is_active ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}`}>
+                      {channel.is_active ? 'Active' : 'Inactive'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Hash className="h-3.5 w-3.5" />
+                    <code className="text-sm font-mono bg-secondary px-1.5 py-0.5 rounded truncate">
+                      {channel.telegram_id}
+                    </code>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${channel.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {channel.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                  <button
+                
+                <div className="mt-6 flex items-center justify-between pt-4 border-t border-border/50">
+                   <p className="text-xs text-muted-foreground">
+                     Added {new Date(channel.created_at).toLocaleDateString()}
+                   </p>
+                   <button
                     onClick={() => handleDelete(channel.id)}
-                    className="text-red-400 hover:text-red-300 text-sm px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition"
+                    className="text-destructive hover:text-destructive-foreground hover:bg-destructive p-2 rounded-lg transition-colors"
+                    aria-label="Delete channel"
                   >
-                    Delete
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>

@@ -1,3 +1,32 @@
+## [2026-05-03T10:45:00-07:00]
+### Added — Premium UI/UX Redesign & Onboarding Flow
+
+#### 1. Core Design System Integration
+- Updated `apps/web/app/globals.css` with a new, dark-themed premium design system utilizing Tailwind v4 `@theme` approach. Built comprehensive CSS variables (backgrounds, foregrounds, primary, success, destructive, cards, borders).
+- Swapped typography to `Inter` for general UI text and `JetBrains Mono` for financial metrics and code blocks (added via `layout.tsx`).
+
+#### 2. Page Redesigns & Rebranding
+- **Authentication:** Refactored `/login` and `/register` with improved validation UI, unified aesthetic (blue/green glows), password toggles, and clear "5 days free Pro access" messaging. Included a smooth redirect to `/onboarding` after registration.
+- **Landing Page:** Fully overhauled `apps/web/app/page.tsx` according to the new PRD. Features include a dynamic animated hero section, a 3-step visualization, social proof, feature grids, pricing tables, and an interactive FAQ accordion.
+- **Branding:** Created a unified `FooterBranding.tsx` component and embedded it across all public pages and the sidebar. Explicitly credits ownership to **Fundz Technology** and links out to their official TikTok, X/Twitter, and Instagram pages.
+
+#### 3. Dashboard Infrastructure
+- **Navigation:** Modernized `Sidebar.tsx` and `MobileNav.tsx` utilizing Lucide-react icons and aligning closely with the new premium card aesthetic.
+- **Main View (`dashboard/page.tsx`):** Added a top-level "Bot Engine" status banner to reassure users.
+- **Stats Cards:** Refactored `StatsCards.tsx` to display real-time metrics with JetBrains Mono numbers, dynamic color-coding, and embedded background Lucide icons for visual depth.
+- **Live Trade Feed:** Enhanced `TradeFeed.tsx` rows to feature clear execution status indicators (filled, error, running), directional arrows (buy/sell), and exact time stamps.
+- **P&L Chart:** Created a brand-new `PnlChart.tsx` component leveraging `recharts` to render a polished, animated area chart reflecting the user's cumulative P&L.
+- **Channels Redesign:** Transformed the list view in `dashboard/channels/page.tsx` into a robust grid of rich cards highlighting active statuses, adding background blur elements, and organizing form inputs logically.
+
+#### 4. Onboarding Wizard
+- Created `apps/web/app/onboarding/page.tsx` as a sleek, 5-step interactive wizard.
+- Steps include visual explanations, connecting exchange API keys, subscribing to signal channels, scanning a Telegram QR code, and a final success confirmation that links to the dashboard.
+
+#### 5. Fixed `Failed to generate payment address` 500 Error
+- **Root Cause:** The `/api/billing/session/route.ts` API endpoint was attempting to retrieve the user's HD wallet index (`userIndex`) by calling `db.auth.getUserById(userId)`. Because the `NEXT_PUBLIC_COCOBASE_API_KEY` is a public key, it lacks admin permissions to query the auth table directly, returning a 500 Internal Server Error.
+- **Fix:** Refactored `apps/web/app/(dashboard)/dashboard/billing/page.tsx` to extract the `user_index` from the already authenticated client-side `user.data` object and pass it directly in the POST request body to the billing API.
+- **Verification:** Both Solana and SUI payment wallets now successfully generate dynamically on localhost without errors.
+
 ## [2026-05-02T11:49:00-07:00]
 ### Fixed — Billing 500 Error, Session Persistence, Subscription Warning Dismiss
 

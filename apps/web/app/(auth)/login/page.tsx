@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { db } from '@/lib/cocobase';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { FooterBranding } from '@/components/FooterBranding';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,81 +41,101 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-white text-2xl font-bold">Welcome Back</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            New here?{' '}
-            <a href="/register" className="text-blue-400 hover:underline font-medium">
-              Create account — 5 days free Pro access
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      {/* Background ambient glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none opacity-50" />
+      
+      <div className="flex-1 flex items-center justify-center w-full z-10">
+        <div className="bg-card border border-border rounded-2xl p-8 sm:p-10 w-full max-w-md shadow-2xl relative">
+          
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h1 className="text-foreground text-3xl font-bold tracking-tight">Welcome Back</h1>
+            <p className="text-muted-foreground text-sm mt-2">
+              Sign in to manage your automated trades
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-xl p-4 mb-6 flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {error}
+            </div>
+          )}
+
+          {/* Email / Password */}
+          <div className="space-y-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                <Mail className="h-5 w-5" />
+              </div>
+              <input
+                id="login-email"
+                placeholder="Email address"
+                type="email"
+                autoComplete="email"
+                className="w-full bg-background border border-border text-foreground rounded-xl py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                <Lock className="h-5 w-5" />
+              </div>
+              <input
+                id="login-password"
+                placeholder="Password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                className="w-full bg-background border border-border text-foreground rounded-xl py-3.5 pl-11 pr-12 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                onKeyDown={handleKeyDown}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            id="login-submit"
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-primary/25 mt-8 flex justify-center items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Signing in...</span>
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+
+          <p className="text-muted-foreground text-sm text-center mt-8">
+            Don&apos;t have an account?{' '}
+            <a href="/register" className="text-primary hover:underline font-medium">
+              Create account — 5 days free
             </a>
           </p>
         </div>
-
-        {error && (
-          <div className="bg-red-950/50 border border-red-800 text-red-400 text-sm rounded-lg p-3 mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* Email / Password */}
-        <input
-          id="login-email"
-          placeholder="Email"
-          type="email"
-          autoComplete="email"
-          className="w-full bg-zinc-800 text-white rounded-lg p-3 mb-3 outline-none focus:ring-2 focus:ring-blue-600 transition"
-          onChange={e => setForm({ ...form, email: e.target.value })}
-          onKeyDown={handleKeyDown}
-        />
-        <div className="relative mb-5">
-          <input
-            id="login-password"
-            placeholder="Password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
-            className="w-full bg-zinc-800 text-white rounded-lg p-3 pr-11 outline-none focus:ring-2 focus:ring-blue-600 transition"
-            onChange={e => setForm({ ...form, password: e.target.value })}
-            onKeyDown={handleKeyDown}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(v => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition"
-            tabIndex={-1}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
-            {showPassword ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        <button
-          id="login-submit"
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition"
-        >
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
-
-        <p className="text-zinc-500 text-sm text-center mt-5">
-          Don&apos;t have an account?{' '}
-          <a href="/register" className="text-blue-400 hover:underline">
-            Sign up — 5 days free
-          </a>
-        </p>
       </div>
+      
+      <FooterBranding />
     </div>
   );
 }

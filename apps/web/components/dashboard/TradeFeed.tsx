@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/cocobase';
 import { useAuth } from '@/hooks/useAuth';
+import { Activity, ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 interface TradeLog {
   id: string;
@@ -49,45 +50,84 @@ export default function TradeFeed() {
     };
   }, [user]);
 
-  if (loading) return <div className="text-zinc-500 p-4">Loading trades...</div>;
+  if (loading) return (
+    <div className="bg-card rounded-2xl border border-border p-8 flex items-center justify-center">
+       <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Activity className="h-6 w-6 animate-pulse" />
+          <p className="text-sm font-medium">Loading live feed...</p>
+       </div>
+    </div>
+  );
 
   return (
-    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
-      <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <h2 className="text-white font-semibold">Live Trade Feed</h2>
+    <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+      <div className="p-5 border-b border-border flex items-center justify-between bg-card/50">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+          </div>
+          <h2 className="text-foreground font-semibold">Live Trade Feed</h2>
+        </div>
+        <div className="text-xs font-medium text-muted-foreground bg-secondary px-3 py-1 rounded-full">
+          Auto-updating
+        </div>
       </div>
-      <div className="divide-y divide-zinc-800 max-h-[400px] overflow-y-auto">
+      
+      <div className="divide-y divide-border/50 max-h-[500px] overflow-y-auto custom-scrollbar">
         {trades.length === 0 ? (
-          <p className="p-4 text-zinc-500 text-sm">No trades yet. Add a channel to start.</p>
+          <div className="p-12 text-center flex flex-col items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-foreground font-medium">No trades executed yet</p>
+            <p className="text-muted-foreground text-sm max-w-sm">Connect a signal channel and set up your exchange API keys to start auto-trading.</p>
+          </div>
         ) : (
           trades.map(trade => (
-            <div key={trade.id} className="flex items-center justify-between p-4 hover:bg-zinc-800/50">
-              <div className="flex items-center gap-3">
-                <span className={`text-lg ${trade.side === 'Buy' ? 'text-green-400' : 'text-red-400'}`}>
-                  {trade.side === 'Buy' ? '🟢' : '🔴'}
-                </span>
+            <div key={trade.id} className="flex items-center justify-between p-4 sm:p-5 hover:bg-secondary/50 transition-colors group">
+              <div className="flex items-center gap-4">
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${trade.side === 'Buy' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                   {trade.side === 'Buy' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+                </div>
                 <div>
-                  <p className="text-white font-mono font-semibold">{trade.symbol}</p>
-                  <p className="text-zinc-500 text-xs">
-                    {new Date(trade.executed_at).toLocaleString()}
+                  <div className="flex items-center gap-2 mb-1">
+                     <p className="text-foreground font-mono font-bold tracking-tight">{trade.symbol}</p>
+                     <span className="text-muted-foreground text-xs font-medium px-2 py-0.5 bg-secondary rounded text-[10px] uppercase">
+                       {trade.side}
+                     </span>
+                  </div>
+                  <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    {new Date(trade.executed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-zinc-300 text-sm">Entry: ${trade.entry_price?.toLocaleString()}</p>
-                <p className="text-zinc-500 text-xs">Qty: {trade.qty}</p>
+              
+              <div className="text-right hidden sm:block">
+                <p className="text-foreground font-mono text-sm mb-1">
+                  <span className="text-muted-foreground mr-2 font-sans text-xs">Entry:</span>
+                  ${trade.entry_price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                </p>
+                <p className="text-muted-foreground font-mono text-xs">
+                  <span className="font-sans mr-1">Qty:</span>{trade.qty}
+                </p>
               </div>
-              <div className="text-right ml-4">
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  trade.status === 'filled' ? 'bg-green-900/50 text-green-400' :
-                  trade.status === 'error' ? 'bg-red-900/50 text-red-400' :
-                  'bg-zinc-700 text-zinc-400'
+              
+              <div className="text-right ml-4 flex flex-col items-end gap-2">
+                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  trade.status === 'filled' ? 'bg-success/10 text-success border border-success/20' :
+                  trade.status === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
+                  'bg-secondary text-muted-foreground border border-border'
                 }`}>
-                  {trade.status}
-                </span>
+                  {trade.status === 'filled' && <CheckCircle2 className="h-3 w-3" />}
+                  {trade.status === 'error' && <XCircle className="h-3 w-3" />}
+                  {trade.status !== 'filled' && trade.status !== 'error' && <Activity className="h-3 w-3" />}
+                  <span className="capitalize">{trade.status}</span>
+                </div>
+                
                 {trade.pnl !== null && trade.pnl !== undefined && (
-                  <p className={`text-sm font-semibold mt-1 ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className={`text-sm font-bold font-mono tracking-tight ${trade.pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
                     {trade.pnl >= 0 ? '+' : ''}{trade.pnl?.toFixed(2)} USDT
                   </p>
                 )}

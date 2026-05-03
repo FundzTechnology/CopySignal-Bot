@@ -1,3 +1,5 @@
+import { TrendingUp, Activity, Crosshair, BarChart3 } from 'lucide-react';
+
 export default function StatsCards({ trades }: { trades: any[] }) {
   const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
   const filledTrades = trades.filter(t => t.status === 'filled');
@@ -8,20 +10,62 @@ export default function StatsCards({ trades }: { trades: any[] }) {
   );
 
   const stats = [
-    { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`, color: totalPnl >= 0 ? 'text-green-400' : 'text-red-400' },
-    { label: 'Trades Today', value: todayTrades.length, color: 'text-white' },
-    { label: 'Win Rate', value: `${winRate}%`, color: 'text-blue-400' },
-    { label: 'Total Trades', value: filledTrades.length, color: 'text-white' },
+    { 
+      label: 'Total P&L', 
+      value: `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`, 
+      color: totalPnl >= 0 ? 'text-success' : 'text-destructive',
+      icon: TrendingUp,
+      bgColor: totalPnl >= 0 ? 'bg-success/10' : 'bg-destructive/10',
+      iconColor: totalPnl >= 0 ? 'text-success' : 'text-destructive'
+    },
+    { 
+      label: 'Trades Today', 
+      value: todayTrades.length.toString(), 
+      color: 'text-foreground',
+      icon: Activity,
+      bgColor: 'bg-primary/10',
+      iconColor: 'text-primary'
+    },
+    { 
+      label: 'Win Rate', 
+      value: `${winRate}%`, 
+      color: 'text-primary',
+      icon: Crosshair,
+      bgColor: 'bg-blue-500/10',
+      iconColor: 'text-blue-500'
+    },
+    { 
+      label: 'Total Trades', 
+      value: filledTrades.length.toString(), 
+      color: 'text-foreground',
+      icon: BarChart3,
+      bgColor: 'bg-zinc-500/10',
+      iconColor: 'text-zinc-400'
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map(stat => (
-        <div key={stat.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-          <p className="text-zinc-500 text-sm mb-1">{stat.label}</p>
-          <p className={`text-2xl font-bold font-mono ${stat.color}`}>{stat.value}</p>
-        </div>
-      ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {stats.map(stat => {
+        const Icon = stat.icon;
+        return (
+          <div key={stat.label} className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+               <Icon className="h-16 w-16 -mr-4 -mt-4 text-muted-foreground" />
+            </div>
+            
+            <div className="flex items-center gap-4 mb-4 relative z-10">
+              <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
+                <Icon className={`h-6 w-6 ${stat.iconColor}`} />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">{stat.label}</p>
+            </div>
+            <p className={`text-3xl font-bold font-mono tracking-tight relative z-10 ${stat.color}`}>
+              {stat.value}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
