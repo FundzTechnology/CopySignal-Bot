@@ -1,3 +1,15 @@
+## [2026-05-03T12:52:00-07:00]
+### Fixed — React Hydration Mismatch & Turbopack Root Warning
+
+#### 1. Fixed React Hydration Mismatch (onboarding/page.tsx)
+- **Root Cause:** The QR code placeholder in Step 4 of the onboarding wizard used `Math.random()` inside JSX render to determine tile color. Because `Math.random()` produces different values on the server (SSR) vs the client, React's hydration check failed and threw a mismatch error visible in the browser console.
+- **Fix:** Replaced the random grid entirely with a **deterministic static SVG** that renders identically on server and client. The SVG mimics a QR code with proper corner squares and data modules — always the same pattern.
+- **Why this works:** SVG elements have no runtime-variable content, so SSR and client output match exactly.
+
+#### 2. Fixed Turbopack "Multiple Lockfiles" Warning (next.config.ts)
+- **Root Cause:** Next.js Turbopack detected two `package-lock.json` files — one at `C:\Users\SIR KOJO\package-lock.json` (system-level) and one inside `apps/web`. It couldn't determine which was the project root and warned on every `npm run dev`.
+- **Fix:** Added `turbopack: { root: __dirname }` to `apps/web/next.config.ts`. This explicitly tells Turbopack that `apps/web` is the root, silencing the warning permanently.
+
 ## [2026-05-03T12:32:00-07:00]
 ### Added & Fixed — Guide Page, SEO, Dashboard UX, Vercel Build, Onboarding Steps
 

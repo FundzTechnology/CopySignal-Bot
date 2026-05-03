@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
     '@solana/spl-token',
   ],
 
+  // Silence the "multiple lockfiles" Turbopack warning by explicitly setting root
+  turbopack: {
+    root: __dirname,
+  },
+
   images: {
     remotePatterns: [
       {

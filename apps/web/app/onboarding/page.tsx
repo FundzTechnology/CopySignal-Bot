@@ -278,11 +278,47 @@ export default function OnboardingPage() {
                      <div className="flex flex-col items-center animate-in zoom-in duration-300">
                        <div className="bg-white p-4 rounded-xl mb-4">
                          {/* Placeholder QR code */}
-                         <div className="grid grid-cols-5 gap-1 w-32 h-32">
-                            {Array.from({length: 25}).map((_, i) => (
-                              <div key={i} className={`w-full h-full ${Math.random() > 0.4 ? 'bg-black' : 'bg-white'}`}></div>
-                            ))}
-                         </div>
+                         {/* Static QR code placeholder — deterministic to avoid hydration mismatch */}
+                         <svg viewBox="0 0 100 100" className="w-32 h-32" xmlns="http://www.w3.org/2000/svg">
+                           {/* Corner squares */}
+                           <rect x="5" y="5" width="30" height="30" rx="3" fill="black"/>
+                           <rect x="10" y="10" width="20" height="20" rx="1" fill="white"/>
+                           <rect x="14" y="14" width="12" height="12" rx="1" fill="black"/>
+                           <rect x="65" y="5" width="30" height="30" rx="3" fill="black"/>
+                           <rect x="70" y="10" width="20" height="20" rx="1" fill="white"/>
+                           <rect x="74" y="14" width="12" height="12" rx="1" fill="black"/>
+                           <rect x="5" y="65" width="30" height="30" rx="3" fill="black"/>
+                           <rect x="10" y="70" width="20" height="20" rx="1" fill="white"/>
+                           <rect x="14" y="74" width="12" height="12" rx="1" fill="black"/>
+                           {/* Data modules */}
+                           <rect x="42" y="5" width="8" height="8" fill="black"/>
+                           <rect x="52" y="5" width="8" height="8" fill="black"/>
+                           <rect x="42" y="15" width="8" height="8" fill="black"/>
+                           <rect x="42" y="25" width="8" height="8" fill="black"/>
+                           <rect x="52" y="25" width="8" height="8" fill="black"/>
+                           <rect x="5" y="42" width="8" height="8" fill="black"/>
+                           <rect x="15" y="42" width="8" height="8" fill="black"/>
+                           <rect x="25" y="42" width="8" height="8" fill="black"/>
+                           <rect x="5" y="52" width="8" height="8" fill="black"/>
+                           <rect x="25" y="52" width="8" height="8" fill="black"/>
+                           <rect x="42" y="42" width="8" height="8" fill="black"/>
+                           <rect x="52" y="42" width="8" height="8" fill="black"/>
+                           <rect x="62" y="42" width="8" height="8" fill="black"/>
+                           <rect x="42" y="52" width="8" height="8" fill="black"/>
+                           <rect x="62" y="52" width="8" height="8" fill="black"/>
+                           <rect x="72" y="42" width="8" height="8" fill="black"/>
+                           <rect x="82" y="42" width="8" height="8" fill="black"/>
+                           <rect x="72" y="52" width="8" height="8" fill="black"/>
+                           <rect x="82" y="52" width="8" height="8" fill="black"/>
+                           <rect x="42" y="62" width="8" height="8" fill="black"/>
+                           <rect x="52" y="72" width="8" height="8" fill="black"/>
+                           <rect x="62" y="62" width="8" height="8" fill="black"/>
+                           <rect x="52" y="82" width="8" height="8" fill="black"/>
+                           <rect x="62" y="82" width="8" height="8" fill="black"/>
+                           <rect x="72" y="72" width="8" height="8" fill="black"/>
+                           <rect x="82" y="62" width="8" height="8" fill="black"/>
+                           <rect x="82" y="82" width="8" height="8" fill="black"/>
+                         </svg>
                        </div>
                        <h3 className="text-lg font-semibold text-foreground mb-2">Scan with Telegram</h3>
                        <p className="text-sm text-muted-foreground max-w-xs">Open Telegram &gt; Settings &gt; Devices &gt; Link Desktop Device</p>
