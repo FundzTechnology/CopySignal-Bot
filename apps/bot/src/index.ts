@@ -21,6 +21,7 @@ import solanaWebhookRouter from './payments/solanaWebhook.js';
 import paymentsApi from './payments/api.js';
 import { runDailySubscriptionCheck } from './jobs/dailySubscriptionCheck.js';
 import { cleanExpiredPaymentSessions } from './jobs/cleanExpiredSessions.js';
+import { sendErrorAlert } from './services/alertBot.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 
@@ -124,4 +125,19 @@ async function boot() {
   console.log('✅ Bot is fully running. Waiting for signals...');
 }
 
-boot().catch(console.error);
+boot().catch(async (err) => {
+  console.error('FATAL boot error:', err);
+  await sendErrorAlert('Bot Boot Failure', String(err)).catch(() => {});
+  process.exit(1);
+});
+
+// Global uncaught exception handler — alert admin
+process.on('uncaughtException', async (err) => {
+  console.error('Uncaught Exception:', err);
+  await sendErrorAlert('Uncaught Exception', err.message || String(err)).catch(() => {});
+});
+
+process.on('unhandledRejection', async (reason) => {
+  console.error('Unhandled Rejection:', reason);
+  await sendErrorAlert('Unhandled Promise Rejection', String(reason)).catch(() => {});
+});

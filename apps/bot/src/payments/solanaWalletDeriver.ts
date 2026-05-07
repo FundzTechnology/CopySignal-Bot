@@ -26,6 +26,19 @@ export function deriveSolanaKeypair(userIndex: number): Keypair {
   return Keypair.fromSeed(derived.key);
 }
 
+// Get the master fee payer keypair (we use index 0)
+// This wallet must be funded with a small amount of SOL by the admin to pay network fees
+export function getFeePayerKeypair(): Keypair {
+  const MASTER_MNEMONIC = process.env.SOLANA_MASTER_MNEMONIC;
+  if (!MASTER_MNEMONIC) {
+    throw new Error("SOLANA_MASTER_MNEMONIC is not defined in environment variables.");
+  }
+  const seed = bip39.mnemonicToSeedSync(MASTER_MNEMONIC);
+  const path = `m/44'/501'/0'/0'`;
+  const derived = derivePath(path, seed.toString('hex'));
+  return Keypair.fromSeed(derived.key);
+}
+
 // Get the base Solana wallet address for a user.
 // We give users this base address so standard wallets (like Phantom) correctly route tokens to the ATA.
 export async function getDerivedSolanaWalletAddress(
@@ -75,9 +88,16 @@ export async function sweepUSDCToMaster(
       )
     );
 
+    const feePayer = getFeePayerKeypair();
+    transaction.feePayer = feePayer.publicKey;
+    
+    // Get latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+
     const signature = await connection.sendTransaction(
       transaction,
-      [userKeypair],
+      [feePayer, userKeypair], // feePayer signs to pay SOL gas, userKeypair signs to authorize SPL transfer
       { skipPreflight: false, preflightCommitment: 'confirmed' }
     );
 

@@ -12,6 +12,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Fire-and-forget login event logging
+  const logLoginEvent = (userId: string | null, email: string, status: 'success' | 'failed') => {
+    fetch('/api/auth/login-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, email, status }),
+    }).catch(() => {}); // non-critical — don't block the user
+  };
+
   const handleLogin = async () => {
     if (!form.email || !form.password) {
       setError('Please enter your email and password.');
@@ -20,9 +29,11 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await db.auth.login({ email: form.email, password: form.password });
+      const result = await db.auth.login({ email: form.email, password: form.password });
+      logLoginEvent(result?.user?.id || null, form.email, 'success');
       router.push('/dashboard');
     } catch (err: any) {
+      logLoginEvent(null, form.email, 'failed');
       const msg = (typeof err === 'string' ? err : JSON.stringify(err)).toLowerCase();
       let friendlyError = "Can't sign in at the moment. Please try again.";
       
@@ -126,7 +137,13 @@ export default function LoginPage() {
             )}
           </button>
 
-          <p className="text-muted-foreground text-sm text-center mt-8">
+          <div className="text-center mt-6">
+            <a href="/reset-password" className="text-muted-foreground hover:text-foreground text-sm transition-colors">
+              Forgot your password?
+            </a>
+          </div>
+
+          <p className="text-muted-foreground text-sm text-center mt-4">
             Don&apos;t have an account?{' '}
             <a href="/register" className="text-primary hover:underline font-medium">
               Create account — 5 days free

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/cocobase';
+import ccxt from 'ccxt';
 
 // NOTE: This route should only be accessible to the authenticated user
 // The encryption happens here — API keys must never travel as plaintext inside DB
@@ -11,6 +12,30 @@ export async function POST(req: NextRequest) {
   const { encrypt } = await import('@/lib/crypto');
 
   try {
+    // ── Validate API Key ─────────────────────────────────────────────────
+    let balance;
+    try {
+      if (exchange === 'binance') {
+        const binance = new ccxt.binance({ apiKey, secret: apiSecret, enableRateLimit: false });
+        if (testnet) binance.setSandboxMode(true);
+        balance = await binance.fetchBalance();
+      } else if (exchange === 'bybit') {
+        const bybit = new ccxt.bybit({ apiKey, secret: apiSecret, enableRateLimit: false });
+        if (testnet) bybit.setSandboxMode(true);
+        balance = await bybit.fetchBalance();
+      } else {
+        throw new Error('Unsupported exchange');
+      }
+    } catch (err: any) {
+      console.error('[API Key Validation Failed]', err.message);
+      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Please check your credentials.' }, { status: 400 });
+    }
+    
+    // Check withdrawal permissions (warning only, but good practice to detect)
+    // ccxt doesn't provide a uniform way to check withdrawal perms directly without making a withdrawal
+    // but the fetchBalance success guarantees we have READ access.
+    // Realistically, trading bots also need createOrder permissions. We could test an order if needed.
+
     const doc = await db.createDocument("api_keys", {
       user_id: userId,
       exchange,
@@ -22,7 +47,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: doc.id, exchange, created: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[apikeys POST] Error:', error.message);
+    return NextResponse.json({ error: 'An unexpected error occurred while saving your API key.' }, { status: 500 });
   }
 }
 
@@ -45,6 +71,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(sanitized);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[apikeys GET] Error:', error.message);
+    return NextResponse.json({ error: 'Failed to load API keys.' }, { status: 500 });
   }
 }

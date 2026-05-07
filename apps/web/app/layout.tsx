@@ -41,6 +41,13 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  manifest: "/manifest.json",
+  themeColor: "#09090b",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CopySignal",
+  },
 };
 
 export default function RootLayout({

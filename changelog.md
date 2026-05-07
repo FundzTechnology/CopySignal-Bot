@@ -1,3 +1,70 @@
+## [2026-05-07T00:35:00-07:00]
+### Completed — Security Audit, Telegram Notification Bot & Input Hardening
+
+#### 1. Telegram Notification Bot (t.me/FundzCopySignalBot) — FULLY BUILT
+- **File Rewritten:** `apps/bot/src/services/alertBot.ts`
+- **What it does now:**
+  - `/start <userId>` — Links a user's Telegram account to their CopySignal dashboard. The userId param is passed via a deep link from Settings.
+  - `/status` — Shows bot uptime and user's chat ID.
+  - `/help` — Lists all available commands.
+  - `sendTradeAlert()` — Sends formatted trade execution alerts to linked users.
+  - `sendPaymentAlert()` — Sends payment confirmation messages.
+  - `sendErrorAlert()` — Sends critical system error alerts to the admin chat (configured via `TELEGRAM_ADMIN_CHAT_ID` env var).
+- **Bot runs in polling mode** as part of the bot engine process (not webhooks), so it works from any host.
+
+#### 2. Admin Error Alerting
+- **File:** `apps/bot/src/index.ts`
+  - Added `uncaughtException` and `unhandledRejection` process handlers that send Telegram alerts to admin.
+  - Boot failures now also alert admin before exiting.
+- **File:** `apps/bot/src/services/orchestrator.ts`
+  - Trade execution failures now catch errors and alert admin via `sendErrorAlert()` instead of crashing silently.
+
+#### 3. Input Validation & Sanitization Hardening
+- **File:** `apps/web/app/api/channels/route.ts`
+  - Added type checking for all inputs (userId, channelUsername, exchange).
+  - Channel username stripped of special characters, capped at 100 chars.
+  - Risk percent clamped to 0.1%–5%, max trades clamped to 1–50.
+  - DELETE now verifies channel ownership (user can only deactivate their own channels).
+- **Files:** `apps/web/app/api/apikeys/route.ts`, `apps/web/app/api/admin/route.ts`
+  - Replaced all raw `error.message` responses with generic safe messages. Raw errors are console-logged server-side only.
+
+#### 4. Frontend Error Boundaries
+- **Files Created:** `apps/web/app/error.tsx`, `apps/web/app/global-error.tsx`
+  - Route-level error boundary catches React rendering errors and shows a branded "Something went wrong" page with a "Try Again" button.
+  - Global error boundary catches layout-level errors with a "Reload Application" button.
+  - Users will NEVER see raw stack traces.
+
+#### 5. Build Verification
+- `next build` passes successfully (exit code 0) with all 26 routes generating correctly.
+
+## [2026-05-07T00:15:00-07:00]
+### Completed — Final Production Features, Payment Infrastructure & PWA
+
+#### 1. Security & Infrastructure Hardening
+- **API Key Validation:** Integrated `ccxt` into `apps/web/app/api/apikeys/route.ts` to fetch exchange balances during key addition, validating keys before storage.
+- **Dependency Fixes:** Installed `protobufjs` and added both `ccxt` and `protobufjs` to `serverExternalPackages` in `next.config.ts` to fix Next.js edge bundling build errors.
+
+#### 2. Next-PWA Setup
+- **Configured PWA:** Installed `@ducanh2912/next-pwa` and configured it in `next.config.ts`.
+- **Assets:** Generated `public/manifest.json` and a custom branded `icon.svg`. Injected manifest links and theme-color meta tags into `apps/web/app/layout.tsx`.
+- **Verified:** Ran a successful `next build` to confirm service worker generation.
+
+#### 3. Dashboard UX Enhancements
+- **Global Notifications:** Built `NotificationBell.tsx` and added it to the `Sidebar.tsx` header to display global messages broadcasted by the admin.
+- **Bot Engine Status:** Added a dynamic "Bot Status" banner (Active/Paused) to `dashboard/page.tsx` based on the user's active channel count.
+- **Empty State Guide:** Added an onboarding Empty State in `dashboard/page.tsx` that intelligently guides new users to connect Telegram and add API keys if they haven't done so.
+
+#### 4. Payment & Billing Enhancements
+- **SOL Fee Payer Logic:** Modified `apps/bot/src/payments/solanaWalletDeriver.ts` to implement a Master Fee Payer system. Derived wallets no longer need SOL to sweep USDC; the master wallet signs and pays the gas fees.
+- **Payment History Table:** Added a responsive Payment History table to `dashboard/billing/page.tsx` showing all past transactions, status, and block explorer links.
+- **Renewal UX:** Added expiration warnings to the billing page. If a plan expires in < 5 days, an orange warning banner appears.
+- **Referral Program:** Added a Referral Program section at the bottom of the billing page allowing users to copy their unique referral link.
+
+#### 5. Advanced Bot Features (Batch 6)
+- **Mandatory Stop Loss:** Updated `apps/bot/src/parser/signalParser.ts` to enforce `stop_loss` as a mandatory field. Signals without a stop loss now score 0 and are rejected to protect user accounts.
+- **Multi-TP Partial Close:** Implemented split Take-Profit orders in `apps/bot/src/executors/binanceExecutor.ts`. If the user has `multi_tp_partial` configured in their settings, the bot will split the position across TP1 and TP2 using reduce-only orders. 
+- **Channel Risk Score:** Added a Risk Score indicator (🟢 Low Risk, 🟡 Medium Risk, 🔴 High Risk) to the `apps/web/app/(dashboard)/dashboard/leaderboard/page.tsx` based on the channel's win rate.
+
 ## [2026-05-03T12:52:00-07:00]
 ### Fixed — React Hydration Mismatch & Turbopack Root Warning
 

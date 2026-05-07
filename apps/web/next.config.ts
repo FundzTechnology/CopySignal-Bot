@@ -1,4 +1,10 @@
 import type { NextConfig } from 'next';
+import withPWAInit from '@ducanh2912/next-pwa';
+
+const withPWA = withPWAInit({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+});
 
 const nextConfig: NextConfig = {
   // These packages use native Node.js APIs (Buffer, crypto, etc.) and must
@@ -9,6 +15,8 @@ const nextConfig: NextConfig = {
     '@solana/web3.js',
     '@mysten/sui.js',
     '@solana/spl-token',
+    'ccxt',
+    'protobufjs'
   ],
 
   // Silence the "multiple lockfiles" Turbopack warning by explicitly setting root
@@ -48,4 +56,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);

@@ -5,7 +5,7 @@ import { getDefaultTPSelection } from '../parser/tpSelector.js';
 import { executeManagementAction } from './tradeManager.js';
 import { executeBybit } from '../executors/bybitExecutor.js';
 import { executeBinance } from '../executors/binanceExecutor.js';
-import { sendTradeAlert } from './alertBot.js';
+import { sendTradeAlert, sendErrorAlert } from './alertBot.js';
 
 export async function handleSignal(
   rawMessage: string,
@@ -80,11 +80,22 @@ export async function handleSignal(
   if (!apiKeys.length) return;
 
   // ── EXECUTION ───────────────────────────────────────────────
+  const multiTpPercent = user.data?.multi_tp_partial || 0;
+  
   let result;
-  if (channelDoc.exchange === 'bybit') {
-    result = await executeBybit(apiKeys[0] as any, parsed, channelDoc.risk_percent);
-  } else {
-    result = await executeBinance(apiKeys[0] as any, parsed, channelDoc.risk_percent);
+  try {
+    if (channelDoc.exchange === 'bybit') {
+      result = await executeBybit(apiKeys[0] as any, parsed, channelDoc.risk_percent, multiTpPercent);
+    } else {
+      result = await executeBinance(apiKeys[0] as any, parsed, channelDoc.risk_percent, multiTpPercent);
+    }
+  } catch (execErr: any) {
+    // Alert admin on critical execution failures
+    await sendErrorAlert(
+      `Trade Execution Failed — ${parsed.symbol} on ${channelDoc.exchange}`,
+      execErr.message || String(execErr)
+    );
+    result = { success: false, qty: 0, entryPrice: 0, error: execErr.message };
   }
 
   // ── RECORDING ───────────────────────────────────────────────

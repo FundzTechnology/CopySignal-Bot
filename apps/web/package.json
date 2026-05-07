@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@mysten/sui.js": "^0.54.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-switch": "^1.2.6",
@@ -17,6 +18,7 @@
     "@solana/web3.js": "^1.98.4",
     "@stripe/stripe-js": "^9.2.0",
     "bip39": "^3.1.0",
+    "ccxt": "^4.5.52",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cocobase": "^1.5.4",
@@ -24,6 +26,7 @@
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
+    "protobufjs": "^8.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",

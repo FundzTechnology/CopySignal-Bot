@@ -1,0 +1,19 @@
+{
+  "name": "CopySignal Bot",
+  "short_name": "CopySignal",
+  "description": "Auto-execute crypto trading signals on Bybit & Binance. Built by Fundz Technology.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

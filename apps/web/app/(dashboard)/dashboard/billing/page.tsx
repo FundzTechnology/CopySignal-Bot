@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { db } from '@/lib/cocobase';
+import { CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react';
 
 const PLANS = [
   {
@@ -45,6 +47,22 @@ export default function BillingPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [paymentSession, setPaymentSession] = useState<{ address: string, expiresAt: string } | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchHistory = async () => {
+      try {
+        const docs = await db.listDocuments('payment_sessions', {
+          filters: { user_id: user.id }
+        }) as any[];
+        setHistory(docs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      } catch (err) {
+        console.error('Failed to fetch history', err);
+      }
+    };
+    fetchHistory();
+  }, [user]);
 
   const generateSession = async () => {
     if (!user) return;
@@ -101,9 +119,10 @@ export default function BillingPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const plan = user?.data?.plan || 'free';
-  const expiresAt = user?.data?.plan_expires_at
-    ? new Date(user.data.plan_expires_at).toLocaleDateString('en-US', {
+    const plan = user?.data?.plan || 'free';
+  const expiresAtDate = user?.data?.plan_expires_at ? new Date(user.data.plan_expires_at) : null;
+  const expiresAt = expiresAtDate
+    ? expiresAtDate.toLocaleDateString('en-US', {
         month: 'long', day: 'numeric', year: 'numeric',
       })
     : null;
@@ -111,39 +130,48 @@ export default function BillingPage() {
   const baseAmount = PLANS.find(p => p.id === selectedPlan)?.amount || 0;
   const selectedPlanAmount = baseAmount ? baseAmount + 0.5 : 0;
 
+  // Renewal UX logic
+  const isExpiringSoon = expiresAtDate && (expiresAtDate.getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000);
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Billing & Subscription</h1>
-        <p className="text-zinc-400 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Billing & Subscription</h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Pay with USDC on Solana or SUI. Payments are instant and irreversible.
         </p>
       </div>
 
       {/* Current Plan Status */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
+        {isExpiringSoon && (
+          <div className="absolute top-0 left-0 w-full bg-orange-500/20 border-b border-orange-500/30 px-4 py-2 flex items-center justify-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-400" />
+            <span className="text-xs font-semibold text-orange-400">Your plan expires soon! Renew now to avoid interruption.</span>
+          </div>
+        )}
+        <div className={`flex items-center justify-between flex-wrap gap-4 ${isExpiringSoon ? 'mt-8' : ''}`}>
           <div>
-            <p className="text-zinc-400 text-sm">Current Plan</p>
+            <p className="text-muted-foreground text-sm font-medium">Current Plan</p>
             <div className="flex items-center gap-3 mt-1">
               <span className={`text-2xl font-bold capitalize ${
-                plan === 'pro' ? 'text-blue-400' :
+                plan === 'pro' ? 'text-primary' :
                 plan === 'starter' ? 'text-emerald-400' :
                 plan === 'trial' ? 'text-purple-400' :
-                'text-zinc-400'
+                'text-muted-foreground'
               }`}>
                 {plan === 'trial' ? '✨ Trial (Pro)' : plan.charAt(0).toUpperCase() + plan.slice(1)}
               </span>
             </div>
             {expiresAt && (
-              <p className="text-zinc-500 text-xs mt-1">
-                {plan === 'free' ? '' : `Expires: ${expiresAt}`}
+              <p className="text-muted-foreground text-xs mt-1.5 flex items-center gap-1.5 font-medium">
+                <Clock className="h-3.5 w-3.5" /> {plan === 'free' ? '' : `Expires: ${expiresAt}`}
               </p>
             )}
           </div>
           {plan === 'free' && (
-            <div className="bg-zinc-800 rounded-xl px-4 py-2 text-zinc-400 text-sm">
+            <div className="bg-secondary rounded-xl px-4 py-2 text-muted-foreground text-sm font-medium border border-border">
               Subscribe below to activate auto-trading
             </div>
           )}
@@ -152,37 +180,42 @@ export default function BillingPage() {
 
       {/* Plan Selector */}
       <div>
-        <h2 className="text-white font-semibold mb-4">Choose a Plan</h2>
+        <h2 className="text-foreground font-semibold mb-4 text-lg">Choose a Plan</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {PLANS.map(p => (
+          {PLANS.map(p => {
+            const isCurrentPlan = plan === p.id;
+            return (
             <button
               key={p.id}
               onClick={() => p.amount && setSelectedPlan(p.id as 'starter' | 'pro')}
               disabled={!p.amount}
-              className={`relative text-left rounded-2xl border p-5 transition ${
+              className={`relative text-left rounded-2xl border p-5 transition-all ${
                 p.recommended
-                  ? 'border-blue-500 bg-blue-950/30'
-                  : 'border-zinc-800 bg-zinc-900'
-              } ${selectedPlan === p.id && p.amount ? 'ring-2 ring-blue-500' : ''} ${
-                !p.amount ? 'opacity-50 cursor-default' : 'hover:border-zinc-600 cursor-pointer'
+                  ? 'border-primary/50 bg-primary/5 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+                  : 'border-border bg-card'
+              } ${selectedPlan === p.id && p.amount ? 'ring-2 ring-primary border-transparent' : ''} ${
+                !p.amount ? 'opacity-50 cursor-default' : 'hover:border-primary/30 cursor-pointer hover:bg-secondary/30'
               }`}
             >
               {p.recommended && (
-                <span className="absolute -top-3 left-4 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="absolute -top-3 left-4 bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                   MOST POPULAR
                 </span>
               )}
-              <div className="font-bold text-white text-lg">{p.name}</div>
-              <div className="text-blue-400 font-mono font-bold text-xl mt-1">{p.price}</div>
-              <ul className="mt-3 space-y-1">
+              <div className="font-bold text-foreground text-lg">{p.name}</div>
+              <div className="text-primary font-mono font-bold text-xl mt-1.5 flex items-center gap-2">
+                {isCurrentPlan && p.amount ? 'Renew for ' + p.price : p.price}
+              </div>
+              <ul className="mt-4 space-y-2">
                 {p.features.map(f => (
-                  <li key={f} className="text-zinc-400 text-xs flex items-center gap-1.5">
-                    <span className="text-emerald-400">✓</span> {f}
+                  <li key={f} className="text-muted-foreground text-xs flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {f}
                   </li>
                 ))}
               </ul>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -299,6 +332,96 @@ export default function BillingPage() {
           <p className="text-zinc-500 text-xs">
             🕐 <span className="text-zinc-300">What happens next:</span> Once your transaction is confirmed on-chain (usually within 2–5 seconds on SUI, ~2 seconds on Solana), your account is automatically upgraded and you&apos;ll receive a Telegram confirmation. Your plan is valid for 30 days from the payment date.
           </p>
+        </div>
+        </div>
+
+      {/* Payment History Table */}
+      <div className="pt-8 border-t border-border mt-12">
+        <h2 className="text-xl font-bold text-foreground mb-4">Payment History</h2>
+        {history.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
+            No payments found.
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Plan</th>
+                    <th className="px-4 py-3 font-medium">Amount</th>
+                    <th className="px-4 py-3 font-medium">Network</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Tx Hash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {history.map((h) => (
+                    <tr key={h.id || (h as any)._id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-foreground font-medium">
+                        {new Date(h.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap capitalize text-muted-foreground">
+                        {h.plan}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-foreground font-mono">
+                        ${h.amount_expected} USDC
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap capitalize text-muted-foreground">
+                        {h.chain}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
+                          h.status.includes('confirmed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                          h.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                          h.status === 'expired' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
+                          'bg-primary/10 text-primary border border-primary/20'
+                        }`}>
+                          {h.status === 'confirmed_late' ? 'LATE CONFIRM' : h.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {h.tx_signature ? (
+                          <a 
+                            href={h.chain === 'solana' ? `https://solscan.io/tx/${h.tx_signature}` : `https://suivision.xyz/txblock/${h.tx_signature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline font-mono text-xs truncate max-w-[120px] block"
+                          >
+                            {h.tx_signature.substring(0, 16)}...
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground/50 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Referral Program */}
+      <div className="pt-8 border-t border-border mt-12">
+        <h2 className="text-xl font-bold text-foreground mb-4">Referral Program</h2>
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <p className="text-muted-foreground text-sm mb-4">
+            Share your referral link with your community. You earn 20% of their subscription fees for life.
+          </p>
+          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3 border border-border">
+            <code className="text-primary text-sm flex-1 break-all font-mono">
+              {typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${user?.id}` : ''}
+            </code>
+            <button
+              onClick={() => copy(`${window.location.origin}/register?ref=${user?.id}`, 'referral')}
+              className="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary text-xs px-3 py-1.5 rounded-lg transition font-medium"
+            >
+              {copied === 'referral' ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -140,14 +140,11 @@ export function scoreSignal(parsed: ParsedSignal, channelRules?: ChannelRules): 
   if (!parsed.symbol) return 0;     // No symbol = definitely not a signal
   if (!parsed.side) return 0;       // No direction = cannot trade
   if (!parsed.entry) return 0;      // No entry = cannot size position
+  if (!parsed.stop_loss) return 0;  // No stop loss = cannot trade safely
 
   score += 3; // Base score for having all mandatory fields
 
   // ── Strongly recommended fields ──
-  if (parsed.stop_loss) {
-    score += 3; 
-  }
-
   if (parsed.take_profits.length > 0) {
     score += 2;
   }

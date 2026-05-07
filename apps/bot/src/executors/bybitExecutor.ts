@@ -20,7 +20,8 @@ export interface ExecutionResult {
 export async function executeBybit(
   apiKeyDoc: ApiKeyDoc,
   signal: ParsedSignal,
-  riskPercent: number
+  riskPercent: number,
+  multiTpPercent: number = 0
 ): Promise<ExecutionResult> {
 
   const client = new RestClientV5({
