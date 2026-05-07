@@ -58,18 +58,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Check if the user has a telegram_user_id in their profile
-    const users = await db.listDocuments('users', {
-      filters: { id: userId }
-    }) as any[];
-
-    // Also try fetching via auth
     let telegramChatId = null;
     let telegramUsername = null;
 
-    if (users.length > 0) {
-      telegramChatId = users[0].telegram_user_id || users[0].data?.telegram_user_id;
-      telegramUsername = users[0].telegram_username || users[0].data?.telegram_username;
+    // Check the custom 'users' collection where the bot stores telegram link data
+    try {
+      const userDocs = await db.listDocuments('users', {
+        filters: { user_id: userId }
+      }) as any[];
+
+      if (userDocs.length > 0) {
+        const doc = userDocs[0];
+        telegramChatId = doc.telegram_user_id || doc.data?.telegram_user_id;
+        telegramUsername = doc.telegram_username || doc.data?.telegram_username;
+      }
+    } catch {
+      // Collection may not exist yet
     }
 
     return NextResponse.json({

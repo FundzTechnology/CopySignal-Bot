@@ -1,3 +1,55 @@
+## [2026-05-07T14:08:00-07:00]
+### Fixed — TypeScript Compile Error in API Keys Route
+- **File:** `apps/web/app/api/apikeys/route.ts`
+- **Problem:** Line 61 had a TypeScript error: `Element implicitly has an 'any' type because expression of type '"demotrading"' can't be used to index type`. CCXT's TypeScript type definitions for the `urls` object don't include the `demotrading` property, even though it exists at runtime for exchanges like Bybit.
+- **Fix:** Cast `bybit.urls` to `any` when accessing the `demotrading` key: `(bybit.urls as any)['demotrading']`. This preserves the runtime behavior while satisfying the TypeScript compiler.
+- **Why:** This error would block `next build` on strict TypeScript projects and showed as a red squiggle in the IDE.
+
+## [2026-05-07T13:47:00-07:00]
+### Fixed — Telegram Bot Account Linking (Critical)
+- **Files:** `apps/bot/src/services/telegramService.ts`, `apps/web/app/api/telegram/link/route.ts`
+- **Problem:** When a user sent their 6-digit linking code to the Telegram bot, nothing happened. The bot silently failed because `db.updateDocument('users', token.user_id, ...)` assumed a document already existed in the custom `users` collection. In Cocobase, auth users are stored separately from custom collections, so this call always returned a 404.
+- **Fix:** Rewrote `handleLinkingCode()` to first query `db.listDocuments('users', { filters: { user_id } })`. If a document exists, it updates it. If not, it creates a new one with `db.createDocument()`. Added a multi-layer fallback to guarantee the link succeeds.
+- **Also fixed:** The GET endpoint in `telegram/link/route.ts` was querying `filters: { id: userId }` instead of `filters: { user_id: userId }`, which never matched. Corrected the filter to match the actual document structure.
+- **Why:** This was the #1 user-facing bug — Telegram notifications could never be enabled.
+
+### Fixed — Fly.io Production Crash Loop (Critical)
+- **Files:** `apps/bot/package.json`, `apps/bot/Dockerfile`
+- **Problem:** The production Docker container crashed on boot with `ERR_MODULE_NOT_FOUND` for `cocobase/dist/realtime/multiplayer`. The 2-stage Dockerfile compiled TypeScript with `tsc`, then ran `node dist/index.js`. Node's strict ESM resolver rejected cocobase's internal imports that lack `.js` extensions.
+- **Fix:** 
+  1. Moved `tsx` from `devDependencies` to `dependencies` so it's available in production.
+  2. Changed the `start` script from `"node dist/index.js"` to `"tsx src/index.ts"`.
+  3. Simplified the Dockerfile from a 2-stage build to a single stage: `npm install` → `CMD ["npx", "tsx", "src/index.ts"]`. The `tsc` compile step is no longer needed since `tsx` handles TypeScript natively and resolves ESM modules correctly.
+- **Why:** This eliminates the crash loop that exhausted the 10-restart limit on Fly.io machines.
+
+### Fixed — Bybit API Key Validation for Demo & UTA Accounts (Critical)
+- **File:** `apps/web/app/api/apikeys/route.ts`
+- **Problem:** Bybit API key validation failed with "Invalid API key or insufficient permissions" even for valid keys. Two root causes:
+  1. Demo mode was manually setting `bybitOpts.urls.api` but CCXT has a built-in `demotrading` URL map that needs to be applied instead.
+  2. New Bybit accounts use Unified Trading Accounts (UTA), and `fetchBalance()` without specifying `type: 'unified'` fails on UTA accounts.
+- **Fix:**
+  1. Applied `bybit.urls['api'] = bybit.urls['demotrading']` to use CCXT's native demo URL map.
+  2. Added a try/catch chain: first attempts `fetchBalance({ type: 'unified' })`, falls back to `fetchBalance()` for classic accounts.
+- **Why:** Ensures both UTA and classic Bybit accounts can validate correctly in both live and demo modes.
+
+### Added — API Key Uniqueness Enforcement
+- **File:** `apps/web/app/api/apikeys/route.ts`
+- **Problem:** The same API key could be registered across multiple user accounts, creating a security risk.
+- **Fix:** Before saving, the route now fetches all existing API keys, decrypts each one, and compares it against the submitted key. If a match is found on a different `user_id`, the request is rejected with HTTP 409 ("This API key is already linked to another account"). If the same user tries to add a duplicate, it's also rejected ("You have already added this API key").
+- **Why:** Prevents cross-account key sharing and accidental duplicate entries.
+
+### Fixed — Onboarding Wizard Bypassed API Validation
+- **File:** `apps/web/app/onboarding/page.tsx`
+- **Problem:** The onboarding wizard's "Connect Exchange" step was saving API keys directly to Cocobase via `db.createDocument('api_keys', ...)`, completely bypassing the `/api/apikeys` route. This meant keys were stored unencrypted and without any validation.
+- **Fix:** Changed `handleConnectExchange()` to route through `fetch('/api/apikeys', { method: 'POST', ... })`, so onboarding keys now go through the same encryption, validation, and uniqueness checks as the Settings page.
+- **Why:** Critical security fix — all API keys must pass through server-side encryption and validation.
+
+### Added — Database API Key Wipe Script
+- **File (New):** `apps/bot/src/scripts/wipeApiKeys.ts`
+- Created a standalone script to purge all existing `api_keys` documents from Cocobase.
+- Run with: `npx tsx src/scripts/wipeApiKeys.ts` from `apps/bot/`.
+- **Why:** Required to clear legacy unencrypted/unvalidated keys before deploying the new security logic.
+
 ## [2026-05-07T10:50:00-07:00]
 ### Fixed — Onboarding Demo Mode
 - **File:** `apps/web/app/onboarding/page.tsx`

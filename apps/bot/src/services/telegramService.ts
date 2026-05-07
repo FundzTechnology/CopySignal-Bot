@@ -112,21 +112,58 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
     }
 
     const token = tokens[0];
+    const tokenId = token.id || token._id;
+    const userId = token.user_id;
 
     // Check expiry
-    if (new Date(token.expires_at) < new Date()) {
+    const expiresAt = token.expires_at || token.data?.expires_at;
+    if (expiresAt && new Date(expiresAt) < new Date()) {
       await bot.sendMessage(chatId, `❌ This code has expired. Please generate a new one.`);
       return;
     }
 
     // 2. Mark token used
-    await db.updateDocument('telegram_link_tokens', token.id || token._id, { used: true });
+    await db.updateDocument('telegram_link_tokens', tokenId, { used: true });
 
-    // 3. Link user
-    await db.updateDocument('users', token.user_id, {
+    // 3. Link user — check if a users doc exists first, create if not
+    const telegramData = {
       telegram_user_id: chatId,
       telegram_username: telegramUsername,
-    });
+    };
+
+    try {
+      const existingUsers = await db.listDocuments('users', {
+        filters: { user_id: userId }
+      }) as any[];
+
+      if (existingUsers.length > 0) {
+        // Update existing document
+        const existingId = existingUsers[0].id || existingUsers[0]._id;
+        await db.updateDocument('users', existingId, telegramData);
+        console.log(`[TelegramService] Updated existing users doc ${existingId} with Telegram link`);
+      } else {
+        // Create new document in users collection
+        await db.createDocument('users', {
+          user_id: userId,
+          ...telegramData,
+          linked_at: new Date().toISOString(),
+        });
+        console.log(`[TelegramService] Created new users doc for ${userId} with Telegram link`);
+      }
+    } catch (linkErr) {
+      console.error(`[TelegramService] Failed to update/create users doc, trying direct update:`, linkErr);
+      // Fallback: try updating by user_id directly (in case collection uses user_id as doc ID)
+      try {
+        await db.updateDocument('users', userId, telegramData);
+      } catch (fallbackErr) {
+        // Last resort: create the document
+        await db.createDocument('users', {
+          user_id: userId,
+          ...telegramData,
+          linked_at: new Date().toISOString(),
+        });
+      }
+    }
 
     await bot.sendMessage(
       chatId,
@@ -137,7 +174,7 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
       { parse_mode: 'Markdown' }
     );
 
-    console.log(`[TelegramService] Linked @${telegramUsername} (${chatId}) to user ${token.user_id}`);
+    console.log(`[TelegramService] Linked @${telegramUsername} (${chatId}) to user ${userId}`);
   } catch (err) {
     console.error(`[TelegramService] Linking error:`, err);
     await bot.sendMessage(chatId, `❌ Failed to link account due to a system error. Please try again.`);

@@ -1,29 +1,14 @@
 # syntax = docker/dockerfile:1
-# Build stage — compile TypeScript
-FROM node:22-alpine AS builder
+# Single-stage build — tsx handles TypeScript natively, no tsc needed
+FROM node:22-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --include=dev
+RUN npm install
 
 COPY tsconfig.json ./
 COPY src ./src
-
-# Compile TypeScript → JavaScript
-RUN npx tsc
-
-# ─────────────────────────────────────────────
-# Production stage — lean image
-FROM node:22-alpine AS production
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install --omit=dev
-
-# Copy compiled JS from build stage
-COPY --from=builder /app/dist ./dist
 
 # Health check — Fly.io uses this to verify the machine is alive
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
@@ -31,4 +16,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["npx", "tsx", "src/index.ts"]

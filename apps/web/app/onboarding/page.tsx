@@ -34,14 +34,19 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
     try {
-      await db.createDocument('api_keys', {
-        user_id: user?.id,
-        exchange: exchangeType,
-        api_key: apiKey,
-        api_secret: apiSecret,
-        demo_mode: exchangeType === 'bybit' ? demoMode : false,
-        created_at: new Date().toISOString()
+      const res = await fetch('/api/apikeys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          exchange: exchangeType,
+          apiKey,
+          apiSecret,
+          demoMode: exchangeType === 'bybit' ? demoMode : false,
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to connect exchange.');
       nextStep();
     } catch (err: any) {
       setError(err.message || 'Failed to connect exchange.');

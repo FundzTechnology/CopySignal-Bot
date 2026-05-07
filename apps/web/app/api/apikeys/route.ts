@@ -9,9 +9,42 @@ export async function POST(req: NextRequest) {
 
   // Encrypt before storage
   // In Next.js API routes, use the Node crypto module
-  const { encrypt } = await import('@/lib/crypto');
+  const { encrypt, decrypt } = await import('@/lib/crypto');
 
   try {
+    // ── Check API Key Uniqueness ──────────────────────────────────────────
+    try {
+      const allKeys = await db.listDocuments('api_keys', {}) as any[];
+      for (const existing of allKeys) {
+        const existingApiKey = existing.api_key || existing.data?.api_key;
+        const existingUserId = existing.user_id || existing.data?.user_id;
+        if (!existingApiKey) continue;
+
+        try {
+          const decryptedKey = decrypt(existingApiKey);
+          if (decryptedKey === apiKey && existingUserId !== userId) {
+            return NextResponse.json(
+              { error: 'This API key is already linked to another account.' },
+              { status: 409 }
+            );
+          }
+          // Also prevent the same user from adding the same key twice
+          if (decryptedKey === apiKey && existingUserId === userId) {
+            return NextResponse.json(
+              { error: 'You have already added this API key.' },
+              { status: 409 }
+            );
+          }
+        } catch {
+          // Decryption failed for this record — skip it
+          continue;
+        }
+      }
+    } catch (err) {
+      // Collection may not exist yet — proceed with saving
+      console.log('[apikeys] Uniqueness check skipped (collection may not exist yet)');
+    }
+
     // ── Validate API Key ─────────────────────────────────────────────────
     let balance;
     try {
@@ -21,26 +54,31 @@ export async function POST(req: NextRequest) {
         balance = await binance.fetchBalance();
       } else if (exchange === 'bybit') {
         const bybitOpts: any = { apiKey, secret: apiSecret, enableRateLimit: false };
-        if (demoMode) {
-          // Bybit Demo Trading uses api-demo.bybit.com
-          bybitOpts.urls = { api: { public: 'https://api-demo.bybit.com', private: 'https://api-demo.bybit.com' } };
-        }
         const bybit = new ccxt.bybit(bybitOpts);
-        if (testnet && !demoMode) bybit.setSandboxMode(true);
-        balance = await bybit.fetchBalance();
+
+        if (demoMode) {
+          // Bybit Demo Trading uses the demotrading URLs built into CCXT
+          bybit.urls['api'] = (bybit.urls as any)['demotrading'];
+        } else if (testnet) {
+          bybit.setSandboxMode(true);
+        }
+
+        // Try Unified Trading Account first (most new Bybit accounts use UTA)
+        try {
+          balance = await bybit.fetchBalance({ type: 'unified' });
+        } catch (utaErr: any) {
+          console.log('[API Key Validation] UTA fetchBalance failed, trying default:', utaErr.message);
+          // Fallback to default fetchBalance for classic accounts
+          balance = await bybit.fetchBalance();
+        }
       } else {
         throw new Error('Unsupported exchange');
       }
     } catch (err: any) {
       console.error('[API Key Validation Failed]', err.message);
-      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Please check your credentials.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Please check your credentials and ensure your API key has "Read" and "Trade" permissions enabled.' }, { status: 400 });
     }
     
-    // Check withdrawal permissions (warning only, but good practice to detect)
-    // ccxt doesn't provide a uniform way to check withdrawal perms directly without making a withdrawal
-    // but the fetchBalance success guarantees we have READ access.
-    // Realistically, trading bots also need createOrder permissions. We could test an order if needed.
-
     const doc = await db.createDocument("api_keys", {
       user_id: userId,
       exchange,
