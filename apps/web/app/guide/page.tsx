@@ -9,7 +9,9 @@ const sections = [
   { id: 'how-it-works', label: 'How It Works' },
   { id: 'signal-format', label: 'Signal Format (For Admins)' },
   { id: 'api-setup', label: 'Exchange API Setup' },
-  { id: 'telegram-setup', label: 'Telegram Setup' },
+  { id: 'telegram-setup', label: 'Telegram Channels (Sources)' },
+  { id: 'bot-alerts', label: 'Telegram Notification Bot' },
+  { id: 'advanced-features', label: 'Advanced Features (Multi-TP)' },
   { id: 'testnet', label: 'Testnet / Paper Trading' },
 ];
 
@@ -169,7 +171,7 @@ export default function GuidePage() {
               <li>Calculates position size based on your configured risk %</li>
               <li>Places a <strong className="text-white">market order</strong> with TP and SL on your exchange</li>
               <li>Logs the trade to your dashboard</li>
-              <li>Sends you a <strong className="text-white">Telegram confirmation alert</strong></li>
+              <li>Sends you a <strong className="text-white">Telegram confirmation alert</strong> via the Notification Bot</li>
             </ol>
             <InfoBox type="tip">
               The bot needs your Telegram account linked to read messages from <strong>private</strong> channels. Public channels can be accessed by username alone.
@@ -279,7 +281,7 @@ Lev 15x`}</CodeBlock>
           </Section>
 
           {/* SECTION 5: Telegram Setup */}
-          <Section id="telegram-setup" title="Connecting Telegram" icon={<Rss className="h-5 w-5" />}>
+          <Section id="telegram-setup" title="Connecting Signal Channels" icon={<Rss className="h-5 w-5" />}>
             <p>CopySignal Bot listens to Telegram channels on your behalf. To do this, it needs to identify which channels to monitor.</p>
 
             <h3 className="text-white font-semibold text-lg mt-4">Finding Your Channel Username</h3>
@@ -310,6 +312,40 @@ Lev 15x`}</CodeBlock>
 
             <h3 className="text-white font-semibold text-lg mt-6">Connecting Your Account (Step 4 in Onboarding)</h3>
             <p>For private channels, the bot needs your Telegram account linked via QR code or phone number. During onboarding, Step 4 guides you through this. Your session is encrypted and stored securely — the bot never has access to your chats, only the specific channels you authorize.</p>
+          </Section>
+
+          {/* NEW SECTION: Notification Bot */}
+          <Section id="bot-alerts" title="Setting up the Notification Bot" icon={<Bot className="h-5 w-5" />}>
+            <p>While the step above tells the system <em>where</em> to listen for trades, the <strong>Notification Bot</strong> is how the system talks to <em>you</em>. It sends you instant alerts when trades open, hit take-profits, or close.</p>
+
+            <h3 className="text-white font-semibold text-lg mt-4">How to Connect</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm ml-2">
+              <li>Log in to your CopySignal Dashboard and go to <strong>Settings</strong>.</li>
+              <li>Under the <strong>Telegram Notifications</strong> section, click <strong>Generate Linking Code</strong>.</li>
+              <li>You will receive a secure, 6-digit one-time code (e.g., <code className="bg-zinc-800 px-1 rounded text-blue-400">482915</code>).</li>
+              <li>Open <a href="https://t.me/FundzCopySignalBot" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">@FundzCopySignalBot</a> on Telegram.</li>
+              <li>Send the command <code className="bg-zinc-800 px-1 rounded text-emerald-400">/start</code>.</li>
+              <li>Reply with your 6-digit code. The bot will instantly link your account!</li>
+            </ol>
+            
+            <InfoBox type="success">
+              Once linked, you will receive real-time alerts for every trade execution, take-profit hit, stop-loss trigger, and important admin announcements.
+            </InfoBox>
+          </Section>
+
+          {/* NEW SECTION: Advanced Features */}
+          <Section id="advanced-features" title="Advanced Features (Multi-TP)" icon={<Zap className="h-5 w-5" />}>
+            <p>CopySignal supports advanced trade management directly from your dashboard settings.</p>
+
+            <h3 className="text-white font-semibold text-lg mt-4">Multi-TP Partial Close</h3>
+            <p>If a signal admin posts multiple Take Profit (TP) levels, you can configure the bot to take partial profits.</p>
+            <ul className="list-disc list-inside space-y-2 text-sm ml-2 mt-2">
+              <li>Enable <strong>Multi-TP Partial Close</strong> in Settings.</li>
+              <li>Set a percentage (e.g., <strong>50%</strong>).</li>
+              <li>When TP1 is hit, the bot closes 50% of your position and secures that profit.</li>
+              <li>Crucially, the bot <strong>automatically moves your Stop Loss to the Entry Price</strong>, making the rest of the trade risk-free!</li>
+              <li>The remaining 50% rides to TP2 and beyond.</li>
+            </ul>
           </Section>
 
           {/* SECTION 6: Testnet */}

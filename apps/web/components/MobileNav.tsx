@@ -7,6 +7,7 @@ import { db } from '@/lib/cocobase';
 import { useAuth } from '@/hooks/useAuth';
 import { Bot, LayoutDashboard, Rss, ArrowRightLeft, Settings, CreditCard, LogOut, Menu, X, PauseCircle, PlayCircle, Trophy } from 'lucide-react';
 import { FooterBranding } from '@/components/FooterBranding';
+import { NotificationBell } from '@/components/NotificationBell';
 
 const links = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -79,8 +80,9 @@ export default function MobileNav() {
           <h1 className="text-lg font-bold text-foreground tracking-tight">CopySignal</h1>
         </div>
 
-        {/* Bot status indicator on mobile header */}
+        {/* Bot status indicator and Notification Bell on mobile header */}
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${botActive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
             <div className={`w-2 h-2 rounded-full ${botActive ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
             <span className={`text-[10px] font-semibold ${botActive ? 'text-emerald-400' : 'text-red-400'}`}>
