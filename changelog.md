@@ -1,4 +1,10 @@
-## [2026-05-07T10:15:00-07:00]
+## [2026-05-07T10:50:00-07:00]
+### Fixed — Onboarding Demo Mode
+- **File:** `apps/web/app/onboarding/page.tsx`
+- Added the missing "Demo Trading Mode" toggle to Step 2 (Connect Exchange) of the onboarding wizard when Bybit is selected.
+- Matches the logic implemented in the Settings page to ensure users can start in Demo Mode immediately upon registration.
+
+
 ### Fixed — Fly.io Deployment Crash & Shared Bot Status
 - **Files:** `apps/bot/package.json`, `apps/web/context/BotStatusContext.tsx`, `apps/web/components/Sidebar.tsx`, `apps/web/components/MobileNav.tsx`, `apps/web/app/(dashboard)/dashboard/page.tsx`, `apps/web/app/(dashboard)/layout.tsx`
 - **Fly.io Fix:** Moved `dotenv` from `devDependencies` to `dependencies` in `apps/bot/package.json` so it is installed during the production Docker build. This resolves the `Cannot find package 'dotenv'` error causing the 10-restart limit crash. Started the suspended machines manually.

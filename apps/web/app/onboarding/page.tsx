@@ -15,6 +15,7 @@ export default function OnboardingPage() {
   const [exchangeType, setExchangeType] = useState('binance');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
+  const [demoMode, setDemoMode] = useState(false);
   
   const [channelName, setChannelName] = useState('');
   const [channelId, setChannelId] = useState('');
@@ -38,6 +39,7 @@ export default function OnboardingPage() {
         exchange: exchangeType,
         api_key: apiKey,
         api_secret: apiSecret,
+        demo_mode: exchangeType === 'bybit' ? demoMode : false,
         created_at: new Date().toISOString()
       });
       nextStep();
@@ -191,6 +193,31 @@ export default function OnboardingPage() {
                       className="w-full bg-background border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm font-mono text-sm"
                     />
                   </div>
+
+                  {/* Demo Mode Toggle — Bybit only */}
+                  {exchangeType === 'bybit' && (
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 mt-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-amber-300 font-semibold text-sm">Demo Trading Mode</p>
+                          <p className="text-zinc-500 text-xs mt-0.5">Uses <code className="text-amber-400/80">api-demo.bybit.com</code> with virtual funds.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDemoMode(v => !v)}
+                          className={`relative w-12 h-7 rounded-full transition-colors ${demoMode ? 'bg-amber-500' : 'bg-zinc-700'}`}
+                        >
+                          <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform ${demoMode ? 'left-[22px]' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+                      {demoMode && (
+                        <p className="text-amber-400/70 text-xs mt-2 leading-relaxed">
+                          ⚠ You must use API keys generated while in Bybit Demo Mode. Live keys will not work here.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                 </div>
 
                 <div className="flex gap-4 mt-8 pt-6 border-t border-border">
