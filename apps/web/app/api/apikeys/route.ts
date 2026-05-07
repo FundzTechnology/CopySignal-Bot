@@ -5,7 +5,7 @@ import ccxt from 'ccxt';
 // NOTE: This route should only be accessible to the authenticated user
 // The encryption happens here — API keys must never travel as plaintext inside DB
 export async function POST(req: NextRequest) {
-  const { userId, exchange, apiKey, apiSecret, testnet } = await req.json();
+  const { userId, exchange, apiKey, apiSecret, testnet, demoMode } = await req.json();
 
   // Encrypt before storage
   // In Next.js API routes, use the Node crypto module
@@ -20,8 +20,13 @@ export async function POST(req: NextRequest) {
         if (testnet) binance.setSandboxMode(true);
         balance = await binance.fetchBalance();
       } else if (exchange === 'bybit') {
-        const bybit = new ccxt.bybit({ apiKey, secret: apiSecret, enableRateLimit: false });
-        if (testnet) bybit.setSandboxMode(true);
+        const bybitOpts: any = { apiKey, secret: apiSecret, enableRateLimit: false };
+        if (demoMode) {
+          // Bybit Demo Trading uses api-demo.bybit.com
+          bybitOpts.urls = { api: { public: 'https://api-demo.bybit.com', private: 'https://api-demo.bybit.com' } };
+        }
+        const bybit = new ccxt.bybit(bybitOpts);
+        if (testnet && !demoMode) bybit.setSandboxMode(true);
         balance = await bybit.fetchBalance();
       } else {
         throw new Error('Unsupported exchange');
@@ -42,6 +47,7 @@ export async function POST(req: NextRequest) {
       api_key: encrypt(apiKey),
       api_secret: encrypt(apiSecret),
       testnet: testnet || false,
+      demo_mode: demoMode || false,
       created_at: new Date().toISOString()
     });
 
@@ -67,6 +73,7 @@ export async function GET(req: NextRequest) {
     const sanitized = records.map((r: any) => ({
       id: r.id || r.data?.id,
       exchange: r.exchange || r.data?.exchange,
+      demo_mode: r.demo_mode || r.data?.demo_mode || false,
     }));
 
     return NextResponse.json(sanitized);

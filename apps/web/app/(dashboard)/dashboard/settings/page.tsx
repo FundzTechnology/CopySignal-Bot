@@ -26,6 +26,10 @@ export default function SettingsPage() {
   const [loginEvents, setLoginEvents] = useState<any[]>([]);
   const [loginLoading, setLoginLoading] = useState(true);
 
+  // Demo Mode
+  const [demoMode, setDemoMode] = useState(false);
+  const [hasBybitDemo, setHasBybitDemo] = useState(false);
+
   // Multi-TP Settings
   const [tpSplitEnabled, setTpSplitEnabled] = useState(true);
   const [tpSplitPercent, setTpSplitPercent] = useState(50);
@@ -44,6 +48,7 @@ export default function SettingsPage() {
       if (Array.isArray(res)) {
         setHasBinance(res.some(k => k.exchange === 'binance'));
         setHasBybit(res.some(k => k.exchange === 'bybit'));
+        setHasBybitDemo(res.some(k => k.exchange === 'bybit' && k.demo_mode));
       }
     } catch (err) {
       console.error(err);
@@ -116,7 +121,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/apikeys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, exchange, apiKey, apiSecret })
+        body: JSON.stringify({ userId: user.id, exchange, apiKey, apiSecret, demoMode: exchange === 'bybit' ? demoMode : false })
       });
       
       const data = await res.json();
@@ -128,7 +133,10 @@ export default function SettingsPage() {
       setApiSecret('');
       
       if (exchange === 'binance') setHasBinance(true);
-      if (exchange === 'bybit') setHasBybit(true);
+      if (exchange === 'bybit') {
+        setHasBybit(true);
+        if (demoMode) setHasBybitDemo(true);
+      }
       
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -175,7 +183,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex items-center justify-between">
+          <div className={`bg-zinc-900 border p-5 rounded-2xl flex items-center justify-between ${hasBybitDemo ? 'border-amber-500/40' : 'border-zinc-800'}`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-orange-500/20 text-orange-500 rounded-lg flex items-center justify-center font-bold">By</div>
               <div>
@@ -183,11 +191,16 @@ export default function SettingsPage() {
                 <p className="text-zinc-500 text-xs">Derivatives</p>
               </div>
             </div>
-            {hasBybit ? (
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400">Connected</span>
-            ) : (
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-500">Not Configured</span>
-            )}
+            <div className="flex items-center gap-2">
+              {hasBybitDemo && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">DEMO</span>
+              )}
+              {hasBybit ? (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400">Connected</span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-500">Not Configured</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -235,6 +248,30 @@ export default function SettingsPage() {
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition font-mono text-sm"
               />
             </div>
+
+            {/* Demo Mode Toggle — Bybit only */}
+            {exchange === 'bybit' && (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-amber-300 font-semibold text-sm">Demo Trading Mode</p>
+                    <p className="text-zinc-500 text-xs mt-0.5">Uses <code className="text-amber-400/80">api-demo.bybit.com</code> with virtual funds.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDemoMode(v => !v)}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${demoMode ? 'bg-amber-500' : 'bg-zinc-700'}`}
+                  >
+                    <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform ${demoMode ? 'left-[22px]' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                {demoMode && (
+                  <p className="text-amber-400/70 text-xs mt-2 leading-relaxed">
+                    ⚠ You must use API keys generated while in Bybit Demo Mode. Live keys will not work here.
+                  </p>
+                )}
+              </div>
+            )}
             
             <button
               type="submit"

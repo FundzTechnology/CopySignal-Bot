@@ -1,4 +1,24 @@
-## [2026-05-07T02:15:00-07:00]
+## [2026-05-07T10:15:00-07:00]
+### Fixed — Fly.io Deployment Crash & Shared Bot Status
+- **Files:** `apps/bot/package.json`, `apps/web/context/BotStatusContext.tsx`, `apps/web/components/Sidebar.tsx`, `apps/web/components/MobileNav.tsx`, `apps/web/app/(dashboard)/dashboard/page.tsx`, `apps/web/app/(dashboard)/layout.tsx`
+- **Fly.io Fix:** Moved `dotenv` from `devDependencies` to `dependencies` in `apps/bot/package.json` so it is installed during the production Docker build. This resolves the `Cannot find package 'dotenv'` error causing the 10-restart limit crash. Started the suspended machines manually.
+- **Bot Status Sync Fix:** Created a shared React Context (`BotStatusContext.tsx`) to manage the `botActive` and `channelCount` states globally across the dashboard.
+- **Why:** The Sidebar, MobileNav, and Dashboard page previously fetched their own state independently. Clicking "Resume All Bots" only updated the local component state. Now, toggling the bot updates the context, instantly reflecting the change across the entire UI (including the banner on the main dashboard).
+
+## [2026-05-07T10:00:00-07:00]
+### Feature — Bybit Demo Trading Mode
+- **Files:** `apps/bot/src/executors/bybitExecutor.ts`, `apps/web/app/api/apikeys/route.ts`, `apps/web/app/(dashboard)/dashboard/settings/page.tsx`, `apps/web/app/guide/page.tsx`
+- Added a `demo_mode` toggle in the Settings UI specifically for Bybit.
+- Updated the API key validation and the Bybit executor to route requests to `https://api-demo.bybit.com` when demo mode is enabled.
+- Replaced the old "Testnet" instructions in the Guide page with comprehensive steps for setting up Bybit Demo Trading, as it is much more reliable than the standard testnet.
+- **Why:** Bybit Demo Trading provides a more accurate paper trading experience by using live market data without risking real funds.
+
+## [2026-05-07T09:45:00-07:00]
+### Feature — Mobile Notification Bell
+- **File:** `apps/web/components/MobileNav.tsx`
+- Added the `NotificationBell` component to the mobile header, ensuring users can access in-app notifications on smaller screens.
+
+
 ### Refactored — Notification & Telegram Architecture
 - **Files:** `apps/bot/src/services/telegramService.ts`, `apps/bot/src/services/notificationService.ts`, `apps/web/app/api/telegram/link/route.ts`
 - Replaced insecure Telegram deep-linking (`/start <userId>`) with a secure 6-digit OTP code linking mechanism.

@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
 import { db } from '@/lib/cocobase';
-import { useAuth } from '@/hooks/useAuth';
 import { Bot, LayoutDashboard, Rss, ArrowRightLeft, Settings, CreditCard, LogOut, PauseCircle, PlayCircle, Trophy } from 'lucide-react';
 import { FooterBranding } from '@/components/FooterBranding';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useBotStatus } from '@/context/BotStatusContext';
 
 const links = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -21,68 +20,11 @@ const links = [
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
-  const [botActive, setBotActive] = useState(true);
-  const [channelCount, setChannelCount] = useState(0);
-  const [pausing, setPausing] = useState(false);
-
-  // Fetch bot status (count of active channels)
-  const fetchBotStatus = useCallback(async () => {
-    if (!user) return;
-    try {
-      const channels = await db.listDocuments('channels', {
-        filters: { user_id: user.id, is_active: true },
-      });
-      const count = Array.isArray(channels) ? channels.length : 0;
-      setChannelCount(count);
-      setBotActive(count > 0);
-    } catch {
-      // Non-critical
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchBotStatus();
-  }, [fetchBotStatus]);
+  const { botActive, channelCount, pausing, toggleBot } = useBotStatus();
 
   const handleSignOut = async () => {
     await db.auth.logout();
     router.push('/login');
-  };
-
-  // ── Emergency Stop / Resume ─────────────────────────────────────────
-  const handleEmergencyStop = async () => {
-    if (!user) return;
-    const action = botActive ? 'pause' : 'resume';
-    const msg = botActive
-      ? 'Pause all bots? Open trades stay open but no new signals will execute.'
-      : 'Resume all bots? Signal listening will restart.';
-    
-    if (!confirm(msg)) return;
-
-    setPausing(true);
-    try {
-      const channels = await db.listDocuments('channels', {
-        filters: { user_id: user.id },
-      });
-
-      for (const ch of channels as any[]) {
-        const docId = ch.id || ch._id;
-        if (docId) {
-          await db.updateDocument('channels', docId, {
-            is_active: !botActive,
-          });
-        }
-      }
-
-      setBotActive(!botActive);
-      setChannelCount(botActive ? 0 : (channels as any[]).length);
-    } catch (err) {
-      console.error('Emergency stop error:', err);
-      alert('Failed to update bot status. Please try again.');
-    } finally {
-      setPausing(false);
-    }
   };
 
   return (
@@ -117,7 +59,7 @@ export default function Sidebar() {
 
         {/* Emergency Stop / Resume */}
         <button
-          onClick={handleEmergencyStop}
+          onClick={toggleBot}
           disabled={pausing}
           className={`flex items-center justify-center gap-2 w-full font-semibold py-2.5 rounded-xl transition-all text-sm disabled:opacity-50 ${
             botActive
@@ -176,3 +118,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+

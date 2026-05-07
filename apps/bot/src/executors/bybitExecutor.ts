@@ -7,6 +7,7 @@ export interface ApiKeyDoc {
   api_key: string;          // encrypted
   api_secret: string;       // encrypted
   testnet: boolean;
+  demo_mode?: boolean;      // Bybit Demo Trading (api-demo.bybit.com)
 }
 
 export interface ExecutionResult {
@@ -24,11 +25,19 @@ export async function executeBybit(
   multiTpPercent: number = 0
 ): Promise<ExecutionResult> {
 
+  // Determine base URL: Demo uses api-demo.bybit.com, Testnet uses testnet, else live
+  const baseUrl = apiKeyDoc.demo_mode
+    ? 'https://api-demo.bybit.com'
+    : apiKeyDoc.testnet
+      ? undefined // bybit-api handles testnet URL automatically
+      : undefined; // default live URL
+
   const client = new RestClientV5({
     key: decrypt(apiKeyDoc.api_key),
     secret: decrypt(apiKeyDoc.api_secret),
-    testnet: apiKeyDoc.testnet,
-    syncTime: true, // Forces time synchronization to prevent ECONNRESET
+    testnet: apiKeyDoc.testnet && !apiKeyDoc.demo_mode,
+    syncTime: true,
+    ...(baseUrl ? { baseUrl } : {}),
   } as any);
 
   const MAX_RETRIES = 3;

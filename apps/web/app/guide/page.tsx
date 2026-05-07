@@ -12,7 +12,7 @@ const sections = [
   { id: 'telegram-setup', label: 'Telegram Channels (Sources)' },
   { id: 'bot-alerts', label: 'Telegram Notification Bot' },
   { id: 'advanced-features', label: 'Advanced Features (Multi-TP)' },
-  { id: 'testnet', label: 'Testnet / Paper Trading' },
+  { id: 'testnet', label: 'Demo & Paper Trading' },
 ];
 
 function Section({ id, title, icon, children }: { id: string; title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -348,19 +348,59 @@ Lev 15x`}</CodeBlock>
             </ul>
           </Section>
 
-          {/* SECTION 6: Testnet */}
-          <Section id="testnet" title="Paper Trading / Testnet" icon={<Zap className="h-5 w-5" />}>
-            <p>Want to test the bot without risking real money? Both Bybit and Binance offer testnet environments where you get free virtual funds.</p>
+          {/* SECTION 6: Demo / Paper Trading */}
+          <Section id="testnet" title="Demo & Paper Trading" icon={<Zap className="h-5 w-5" />}>
+            <p>Want to test the bot without risking real money? We strongly recommend using <strong className="text-white">Bybit Demo Trading</strong> — it runs on the same mainnet infrastructure with live price action, but uses virtual funds.</p>
 
-            <h3 className="text-white font-semibold text-lg mt-4">Bybit Testnet</h3>
+            <InfoBox type="tip">
+              Bybit's old "Testnet" is notoriously laggy and unreliable. Demo Trading is far superior — same speeds, same liquidity, zero risk.
+            </InfoBox>
+
+            <h3 className="text-white font-semibold text-lg mt-6">Bybit Demo Trading (Recommended)</h3>
             <ol className="list-decimal list-inside space-y-2 text-sm ml-2">
-              <li>Go to <a href="https://testnet.bybit.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">testnet.bybit.com</a> and register a separate account</li>
-              <li>Navigate to API Management and create a new key (same permissions as live)</li>
-              <li>You'll receive test USDT automatically to trade with</li>
-              <li>Enter these testnet API keys in the bot — trades will execute on testnet only</li>
+              <li>Log in to <a href="https://www.bybit.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">bybit.com</a> with your regular account.</li>
+              <li>Hover over your profile icon (top-right) → click <strong className="text-white">Demo Trading</strong>.</li>
+              <li>You'll see a <strong className="text-amber-400">"Demo Trading"</strong> label at the top of the page — this confirms you're in demo mode.</li>
+              <li>Navigate to <strong className="text-white">API Management</strong> while still in Demo mode.</li>
+              <li>Create a new API key. These keys are <strong className="text-white">unique to your Demo UID</strong> and won't affect your real funds.</li>
+              <li>Enable <strong className="text-white">Contract</strong> or <strong className="text-white">Unified Trading</strong> permissions — never enable Withdrawal.</li>
+              <li>Copy both the <strong className="text-white">API Key</strong> and <strong className="text-white">API Secret</strong>.</li>
             </ol>
 
-            <h3 className="text-white font-semibold text-lg mt-6">Binance Testnet</h3>
+            <div className="bg-zinc-900 border border-amber-500/20 rounded-2xl p-5 mt-4 space-y-3">
+              <p className="font-semibold text-amber-300">Adding Demo Keys to CopySignal</p>
+              <div className="space-y-2 text-sm text-zinc-300">
+                <div className="flex gap-3 items-start">
+                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold shrink-0">Step 1</span>
+                  <span>Go to <strong className="text-white">Dashboard → Settings</strong></span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold shrink-0">Step 2</span>
+                  <span>Select <strong className="text-white">Bybit</strong> as the exchange</span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold shrink-0">Step 3</span>
+                  <span>Toggle <strong className="text-amber-400">Demo Trading Mode</strong> ON (the amber switch)</span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold shrink-0">Step 4</span>
+                  <span>Paste your <strong className="text-white">Demo API Key</strong> and <strong className="text-white">Demo Secret</strong></span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold shrink-0">Step 5</span>
+                  <span>Click Save. The bot will connect to <code className="bg-zinc-800 px-1 rounded text-amber-400">api-demo.bybit.com</code> automatically.</span>
+                </div>
+              </div>
+            </div>
+
+            <InfoBox type="warning">
+              <strong>Critical:</strong> Demo API keys and Live API keys are NOT interchangeable. If Demo Mode is ON, you <strong>must</strong> use keys generated while in Bybit's Demo Trading interface. Live keys will fail with an "Invalid API Key" error.
+            </InfoBox>
+
+            <h3 className="text-white font-semibold text-lg mt-8">Bybit Demo Funding</h3>
+            <p className="text-sm">If you run out of demo funds, go to the <strong className="text-white">Demo Assets</strong> page on Bybit and click <strong className="text-white">"Request Demo Funds"</strong> to top up your virtual balance.</p>
+
+            <h3 className="text-white font-semibold text-lg mt-8">Binance Testnet (Alternative)</h3>
             <ol className="list-decimal list-inside space-y-2 text-sm ml-2">
               <li>Go to <a href="https://testnet.binancefuture.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">testnet.binancefuture.com</a></li>
               <li>Log in with GitHub and generate API keys from the dashboard</li>
@@ -369,7 +409,7 @@ Lev 15x`}</CodeBlock>
             </ol>
 
             <InfoBox type="success">
-              We strongly recommend testing with testnet API keys for at least 48 hours before switching to live keys. This verifies your signal channels and risk settings are configured correctly.
+              We strongly recommend testing with Demo/Testnet keys for at least 48 hours before switching to live keys. This verifies your signal channels and risk settings are configured correctly.
             </InfoBox>
           </Section>
 

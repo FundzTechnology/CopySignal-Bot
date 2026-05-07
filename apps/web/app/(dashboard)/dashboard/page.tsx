@@ -9,9 +9,11 @@ import PnlChart from '@/components/dashboard/PnlChart';
 import AddChannelForm from '@/components/dashboard/AddChannelForm';
 import AddApiKeyForm from '@/components/dashboard/AddApiKeyForm';
 import { Activity, Bot, ChevronRight } from 'lucide-react';
+import { useBotStatus } from '@/context/BotStatusContext';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
+  const { botActive, channelCount: activeChannels, refresh: refreshBotStatus } = useBotStatus();
   const [trades, setTrades] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
   const [tradesLoading, setTradesLoading] = useState(true);
@@ -30,6 +32,7 @@ export default function DashboardPage() {
       setChannels(channelDocs as any[]);
       setTradesLoading(false);
       setChannelsLoading(false);
+      refreshBotStatus();
     });
 
     // Watch for new trades in real time using correct Cocobase realtime API
@@ -63,8 +66,6 @@ export default function DashboardPage() {
     );
   }
 
-  const activeChannels = channels.filter(c => c.is_active).length;
-  const botActive = activeChannels > 0;
   const isEmpty = channels.length === 0 && trades.length === 0;
 
   return (
