@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const ALLOWED_ORIGINS = [
   'https://copysignal-bot.fundztechnology.com',
   'https://www.copysignal-bot.fundztechnology.com',
+  'https://copysignal-bot.vercel.app',
+  'https://copysignal-bot.com',
   'http://localhost:3000',
   'http://localhost:3001',
 ];

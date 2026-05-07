@@ -21,7 +21,8 @@ import solanaWebhookRouter from './payments/solanaWebhook.js';
 import paymentsApi from './payments/api.js';
 import { runDailySubscriptionCheck } from './jobs/dailySubscriptionCheck.js';
 import { cleanExpiredPaymentSessions } from './jobs/cleanExpiredSessions.js';
-import { sendErrorAlert } from './services/alertBot.js';
+import { notify } from './services/notificationService.js';
+import { bot } from './services/telegramService.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 
@@ -51,6 +52,14 @@ async function boot() {
 
   // Solana USDC payment webhook (from Helius)
   app.use('/', solanaWebhookRouter);
+
+  // Telegram Webhook endpoint
+  app.post('/api/telegram/webhook', (req, res) => {
+    if (bot) {
+      bot.processUpdate(req.body);
+    }
+    res.sendStatus(200);
+  });
 
   app.listen(PORT, () => {
     console.log(`🌐 Webhook server listening on port ${PORT}`);
@@ -127,17 +136,17 @@ async function boot() {
 
 boot().catch(async (err) => {
   console.error('FATAL boot error:', err);
-  await sendErrorAlert('Bot Boot Failure', String(err)).catch(() => {});
+  await notify({ type: 'SYSTEM_ERROR', payload: { context: 'Bot Boot Failure', error: String(err) } }).catch(() => {});
   process.exit(1);
 });
 
 // Global uncaught exception handler — alert admin
 process.on('uncaughtException', async (err) => {
   console.error('Uncaught Exception:', err);
-  await sendErrorAlert('Uncaught Exception', err.message || String(err)).catch(() => {});
+  await notify({ type: 'SYSTEM_ERROR', payload: { context: 'Uncaught Exception', error: err.message || String(err) } }).catch(() => {});
 });
 
 process.on('unhandledRejection', async (reason) => {
   console.error('Unhandled Rejection:', reason);
-  await sendErrorAlert('Unhandled Promise Rejection', String(reason)).catch(() => {});
+  await notify({ type: 'SYSTEM_ERROR', payload: { context: 'Unhandled Promise Rejection', error: String(reason) } }).catch(() => {});
 });

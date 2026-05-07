@@ -11,5 +11,5 @@ export interface ExecutionResult {
     entryPrice: number;
     error?: string;
 }
-export declare function executeBybit(apiKeyDoc: ApiKeyDoc, signal: ParsedSignal, riskPercent: number): Promise<ExecutionResult>;
+export declare function executeBybit(apiKeyDoc: ApiKeyDoc, signal: ParsedSignal, riskPercent: number, multiTpPercent?: number): Promise<ExecutionResult>;
 //# sourceMappingURL=bybitExecutor.d.ts.map

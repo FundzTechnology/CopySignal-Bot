@@ -9,5 +9,7 @@ interface TradeAlertParams {
     exchange: string;
 }
 export declare function sendTradeAlert(telegramUserId: string, trade: TradeAlertParams): Promise<void>;
+export declare function sendErrorAlert(context: string, error: string): Promise<void>;
+export declare function sendPaymentAlert(telegramUserId: string, plan: string, chain: string): Promise<void>;
 export {};
 //# sourceMappingURL=alertBot.d.ts.map

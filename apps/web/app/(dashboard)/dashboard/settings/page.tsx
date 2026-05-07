@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/cocobase';
 import { useToast } from '@/components/ui/ToastProvider';
-import { Shield, Monitor, MapPin, Clock, CheckCircle2, XCircle, LogOut } from 'lucide-react';
+import { Shield, Monitor, MapPin, Clock, CheckCircle2, XCircle, LogOut, MessageCircle } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -29,6 +29,12 @@ export default function SettingsPage() {
   // Multi-TP Settings
   const [tpSplitEnabled, setTpSplitEnabled] = useState(true);
   const [tpSplitPercent, setTpSplitPercent] = useState(50);
+
+  // Telegram
+  const [telegramLinked, setTelegramLinked] = useState(false);
+  const [telegramUsername, setTelegramUsername] = useState<string | null>(null);
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [codeLoading, setCodeLoading] = useState(false);
 
   const fetchKeys = async () => {
     if (!user) return;
@@ -62,9 +68,42 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchTelegramStatus = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/telegram/link?userId=${user.id}`);
+      const data = await res.json();
+      setTelegramLinked(data.linked);
+      setTelegramUsername(data.telegram_username);
+    } catch {
+      // non-critical
+    }
+  };
+
+  const generateLinkCode = async () => {
+    if (!user) return;
+    try {
+      setCodeLoading(true);
+      const res = await fetch('/api/telegram/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await res.json();
+      if (data.code) {
+        setLinkCode(data.code);
+      }
+    } catch (err: any) {
+      showToast('Failed to generate code', 'error');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchKeys();
     fetchLoginEvents();
+    fetchTelegramStatus();
   }, [user]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -252,6 +291,66 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Telegram Bot Connection ──────────────────────────────────────────────── */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <MessageCircle className="h-5 w-5 text-blue-400" />
+            <div>
+              <h2 className="text-lg font-bold text-white">Telegram Notifications</h2>
+              <p className="text-zinc-500 text-xs">Receive real-time trade alerts in Telegram</p>
+            </div>
+          </div>
+          {telegramLinked ? (
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400">Connected</span>
+          ) : (
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-500">Not Connected</span>
+          )}
+        </div>
+
+        {telegramLinked ? (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 flex items-center justify-between">
+            <div>
+              <p className="text-white text-sm font-medium">Currently linked to:</p>
+              <p className="text-zinc-400 text-xs mt-1">@{telegramUsername || 'User'}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-5">
+            {!linkCode ? (
+              <div className="text-center py-4">
+                <p className="text-zinc-400 text-sm mb-4">You need to link your Telegram account to receive trade execution alerts.</p>
+                <button
+                  onClick={generateLinkCode}
+                  disabled={codeLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition disabled:opacity-50"
+                >
+                  {codeLoading ? 'Generating...' : 'Generate Linking Code'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-2 text-center">
+                <h3 className="text-white font-bold mb-2">Your 6-Digit Linking Code:</h3>
+                <div className="bg-zinc-900 border border-zinc-800 px-6 py-3 rounded-xl mb-4">
+                  <span className="text-3xl font-mono font-bold tracking-widest text-blue-400">{linkCode}</span>
+                </div>
+                <div className="text-left text-sm text-zinc-400 space-y-2 mb-4 bg-zinc-900/50 p-4 rounded-lg w-full max-w-sm">
+                  <p>1. Open <a href="https://t.me/FundzCopySignalBot" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">@FundzCopySignalBot</a></p>
+                  <p>2. Send the command <code className="text-zinc-300">/start</code></p>
+                  <p>3. Send the 6-digit code above.</p>
+                </div>
+                <button
+                  onClick={fetchTelegramStatus}
+                  className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                >
+                  I've sent the code — check status
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Login Activity ─────────────────────────────────────────────────── */}

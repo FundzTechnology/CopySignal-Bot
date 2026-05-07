@@ -5,7 +5,7 @@ import { getDefaultTPSelection } from '../parser/tpSelector.js';
 import { executeManagementAction } from './tradeManager.js';
 import { executeBybit } from '../executors/bybitExecutor.js';
 import { executeBinance } from '../executors/binanceExecutor.js';
-import { sendTradeAlert } from './alertBot.js';
+import { notify } from './notificationService.js';
 export async function handleSignal(rawMessage, messageId, channelDoc) {
     const userId = channelDoc.user_id;
     // ── GATE 1: Deduplication ──────────────────────────────────
@@ -67,12 +67,26 @@ export async function handleSignal(rawMessage, messageId, channelDoc) {
     if (!apiKeys.length)
         return;
     // ── EXECUTION ───────────────────────────────────────────────
+    const multiTpPercent = user.data?.multi_tp_partial || 0;
     let result;
-    if (channelDoc.exchange === 'bybit') {
-        result = await executeBybit(apiKeys[0], parsed, channelDoc.risk_percent);
+    try {
+        if (channelDoc.exchange === 'bybit') {
+            result = await executeBybit(apiKeys[0], parsed, channelDoc.risk_percent, multiTpPercent);
+        }
+        else {
+            result = await executeBinance(apiKeys[0], parsed, channelDoc.risk_percent, multiTpPercent);
+        }
     }
-    else {
-        result = await executeBinance(apiKeys[0], parsed, channelDoc.risk_percent);
+    catch (execErr) {
+        // Alert admin on critical execution failures
+        await notify({
+            type: 'SYSTEM_ERROR',
+            payload: {
+                context: `Trade Execution Failed — ${parsed.symbol} on ${channelDoc.exchange}`,
+                error: execErr.message || String(execErr)
+            }
+        });
+        result = { success: false, qty: 0, entryPrice: 0, error: execErr.message };
     }
     // ── RECORDING ───────────────────────────────────────────────
     await db.createDocument("trade_logs", {
@@ -98,15 +112,18 @@ export async function handleSignal(rawMessage, messageId, channelDoc) {
     });
     // ── ALERT ───────────────────────────────────────────────────
     if (user?.data?.telegram_user_id && result.success) {
-        await sendTradeAlert(user.data.telegram_user_id, {
-            symbol: parsed.symbol,
-            side: parsed.side,
-            qty: result.qty,
-            entry_price: result.entryPrice,
-            take_profit: tpSelection.initialTP,
-            stop_loss: parsed.stop_loss ?? undefined,
-            status: 'filled',
-            exchange: channelDoc.exchange
+        await notify({
+            type: 'TRADE_OPENED',
+            userId,
+            payload: {
+                symbol: parsed.symbol,
+                side: parsed.side,
+                qty: result.qty,
+                entry_price: result.entryPrice,
+                take_profit: tpSelection.initialTP,
+                stop_loss: parsed.stop_loss ?? undefined,
+                exchange: channelDoc.exchange
+            }
         });
     }
 }

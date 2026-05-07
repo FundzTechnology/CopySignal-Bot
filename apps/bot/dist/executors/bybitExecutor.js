@@ -1,7 +1,7 @@
 import { RestClientV5 } from 'bybit-api';
 import { decrypt } from '../utils/crypto.js';
 import { calculatePositionSize, isSafeToTrade } from '../utils/riskCalc.js';
-export async function executeBybit(apiKeyDoc, signal, riskPercent) {
+export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercent = 0) {
     const client = new RestClientV5({
         key: decrypt(apiKeyDoc.api_key),
         secret: decrypt(apiKeyDoc.api_secret),

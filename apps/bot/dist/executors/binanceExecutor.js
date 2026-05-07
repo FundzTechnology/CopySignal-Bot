@@ -2,7 +2,7 @@ import BinancePkg from 'binance-api-node';
 const Binance = BinancePkg.default || BinancePkg;
 import { decrypt } from '../utils/crypto.js';
 import { calculatePositionSize, isSafeToTrade } from '../utils/riskCalc.js';
-export async function executeBinance(apiKeyDoc, signal, riskPercent) {
+export async function executeBinance(apiKeyDoc, signal, riskPercent, multiTpPercent = 0) {
     const clientOptions = {
         apiKey: decrypt(apiKeyDoc.api_key),
         apiSecret: decrypt(apiKeyDoc.api_secret),
@@ -49,16 +49,46 @@ export async function executeBinance(apiKeyDoc, signal, riskPercent) {
             quantity: String(qty),
         });
         const closeSide = signal.side === 'Buy' ? 'SELL' : 'BUY';
-        // ── Step 7: Place Take Profit order ──
+        // ── Step 7: Place Take Profit order(s) ──
         if (signal.take_profits.length > 0) {
-            await client.futuresOrder({
-                symbol: signal.symbol,
-                side: closeSide,
-                type: 'TAKE_PROFIT_MARKET',
-                stopPrice: String(signal.take_profits[0]),
-                closePosition: 'true',
-                timeInForce: 'GTE_GTC',
-            });
+            if (multiTpPercent > 0 && signal.take_profits.length > 1) {
+                // Split TP
+                const tp1Qty = parseFloat((qty * (multiTpPercent / 100)).toFixed(qtyPrecision));
+                const tp2Qty = parseFloat((qty - tp1Qty).toFixed(qtyPrecision));
+                if (tp1Qty > 0) {
+                    await client.futuresOrder({
+                        symbol: signal.symbol,
+                        side: closeSide,
+                        type: 'TAKE_PROFIT_MARKET',
+                        stopPrice: String(signal.take_profits[0]),
+                        quantity: String(tp1Qty),
+                        reduceOnly: 'true',
+                        timeInForce: 'GTE_GTC',
+                    });
+                }
+                if (tp2Qty > 0) {
+                    await client.futuresOrder({
+                        symbol: signal.symbol,
+                        side: closeSide,
+                        type: 'TAKE_PROFIT_MARKET',
+                        stopPrice: String(signal.take_profits[1]),
+                        quantity: String(tp2Qty),
+                        reduceOnly: 'true',
+                        timeInForce: 'GTE_GTC',
+                    });
+                }
+            }
+            else {
+                // Single TP
+                await client.futuresOrder({
+                    symbol: signal.symbol,
+                    side: closeSide,
+                    type: 'TAKE_PROFIT_MARKET',
+                    stopPrice: String(signal.take_profits[0]),
+                    closePosition: 'true',
+                    timeInForce: 'GTE_GTC',
+                });
+            }
         }
         // ── Step 8: Place Stop Loss order ──
         if (signal.stop_loss) {

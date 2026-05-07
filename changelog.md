@@ -1,3 +1,24 @@
+## [2026-05-07T02:15:00-07:00]
+### Refactored — Notification & Telegram Architecture
+- **Files:** `apps/bot/src/services/telegramService.ts`, `apps/bot/src/services/notificationService.ts`, `apps/web/app/api/telegram/link/route.ts`
+- Replaced insecure Telegram deep-linking (`/start <userId>`) with a secure 6-digit OTP code linking mechanism.
+- Refactored `alertBot.ts` into a centralized `notificationService.ts` to implement event-driven notifications (`notify({ type: 'TRADE_OPENED' })`).
+- Updated `orchestrator.ts` and `subscriptionManager.ts` to emit events instead of making direct bot message calls.
+- Updated `apps/bot/src/index.ts` to include an Express endpoint for Telegram webhooks (`/api/telegram/webhook`).
+- **Why:** To improve security for account linking, provide a scalable notification architecture, and prepare the bot for production webhook deployment on Fly.io.
+
+## [2026-05-07T02:05:00-07:00]
+### Fixed — Helius Webhook Domain Updated
+- **File:** `apps/bot/.env`
+- Replaced temporary `loca.lt` URL with production `https://copysignal-bot-engine.fly.dev/webhook/solana`.
+- **Why:** Ensure Solana payment webhooks reach the production server.
+
+## [2026-05-07T01:54:00-07:00]
+### Fixed — CORS Policy Updated
+- **File:** `apps/web/middleware.ts`
+- Added `https://copysignal-bot.vercel.app` and `https://copysignal-bot.com` to the `ALLOWED_ORIGINS` array.
+- **Why:** User is deploying to Vercel with these domains. Without this, cross-origin requests from these domains would be blocked by the browser.
+
 ## [2026-05-07T00:35:00-07:00]
 ### Completed — Security Audit, Telegram Notification Bot & Input Hardening
 

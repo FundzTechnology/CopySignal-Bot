@@ -1,5 +1,5 @@
 import { db } from '../db/cocobase.js';
-import { sendTradeAlert } from '../services/alertBot.js';
+import { notify } from '../services/notificationService.js';
 
 export interface ActivateParams {
   userId: string;
@@ -38,16 +38,11 @@ export async function activateSubscription(params: ActivateParams) {
   // ── 3. Send Telegram confirmation ──
   const user = await db.auth.getUserById(userId);
   if (user?.data?.telegram_user_id) {
-    const formatted = expiresAt.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
+    await notify({
+      type: 'PAYMENT_CONFIRMED',
+      userId,
+      payload: { plan, chain }
     });
-    await sendTradeAlert(user.data.telegram_user_id, {
-      type: 'payment_confirmed',
-      message:
-        `✅ *Payment Confirmed*\n\nPlan: *${plan.toUpperCase()}*\nAmount: $${amountUSDC} USDC\nChain: ${chain.toUpperCase()}\nExpires: *${formatted}*\n\nYour bot is now fully active. Happy trading! 🚀`,
-    } as any);
   }
 
   console.log(`✅ Subscription activated — user ${userId} → ${plan} until ${expiresAt.toISOString()}`);
