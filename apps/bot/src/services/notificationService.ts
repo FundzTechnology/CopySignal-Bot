@@ -108,12 +108,26 @@ _CopySignal Bot Engine_`.trim();
 // ── Resolve user's Telegram chat ID ─────────────────────────────────────────
 
 async function getUserTelegramChatId(userId: string): Promise<string | null> {
+  // Check 1: auth user data (set during registration or if updated there)
   try {
     const user = await db.auth.getUserById(userId);
-    return user?.data?.telegram_user_id || null;
+    if (user?.data?.telegram_user_id) return user.data.telegram_user_id;
   } catch {
-    return null;
+    // not found in auth
   }
+
+  // Check 2: 'users' collection (where the Telegram bot stores link data)
+  try {
+    const docs = await db.listDocuments('users', { filters: { user_id: userId } }) as any[];
+    if (docs.length > 0) {
+      const doc = docs[0];
+      return doc.telegram_user_id || doc.data?.telegram_user_id || null;
+    }
+  } catch {
+    // collection doesn't exist
+  }
+
+  return null;
 }
 
 // ── Main Notify Function ────────────────────────────────────────────────────

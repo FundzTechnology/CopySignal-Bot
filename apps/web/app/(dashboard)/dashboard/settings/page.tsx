@@ -375,14 +375,36 @@ export default function SettingsPage() {
                 </div>
                 <div className="text-left text-sm text-zinc-400 space-y-2 mb-4 bg-zinc-900/50 p-4 rounded-lg w-full max-w-sm">
                   <p>1. Open <a href="https://t.me/FundzCopySignalBot" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">@FundzCopySignalBot</a></p>
-                  <p>2. Send the command <code className="text-zinc-300">/start</code></p>
-                  <p>3. Send the 6-digit code above.</p>
+                  <p>2. Tap <strong>Start</strong>, then send the 6-digit code above as a message.</p>
+                  <p>3. Come back here and click the button below.</p>
                 </div>
                 <button
-                  onClick={fetchTelegramStatus}
-                  className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                  onClick={async () => {
+                    setCodeLoading(true);
+                    await fetchTelegramStatus();
+                    setCodeLoading(false);
+                    // If still not linked after checking
+                    if (!telegramLinked) {
+                      showToast('Not linked yet — make sure you sent the code to the bot and try again.', 'error');
+                    }
+                  }}
+                  disabled={codeLoading}
+                  className="flex items-center gap-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2.5 px-5 rounded-lg transition disabled:opacity-50"
                 >
-                  I've sent the code — check status
+                  {codeLoading ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full" />
+                      Checking...
+                    </>
+                  ) : (
+                    'I\'ve sent the code — check status'
+                  )}
+                </button>
+                <button
+                  onClick={() => { setLinkCode(null); generateLinkCode(); }}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 mt-3 transition"
+                >
+                  Generate a new code
                 </button>
               </div>
             )}

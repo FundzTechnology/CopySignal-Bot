@@ -284,6 +284,11 @@ export default function ControlPanelPage() {
                 <div className="flex justify-center py-20">
                   <div className="animate-spin h-6 w-6 border-2 border-purple-500 border-t-transparent rounded-full" />
                 </div>
+              ) : users.length === 0 ? (
+                <div className="backdrop-blur-2xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-12 text-center">
+                  <Users className="h-10 w-10 text-white/20 mx-auto mb-3" />
+                  <p className="text-white/40 text-sm">No users found.</p>
+                </div>
               ) : (
                 <div className="backdrop-blur-2xl bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
@@ -292,6 +297,7 @@ export default function ControlPanelPage() {
                         <tr className="border-b border-white/[0.06]">
                           <th className="text-left px-4 py-3 text-white/40 font-medium text-xs uppercase tracking-wider">User</th>
                           <th className="text-left px-4 py-3 text-white/40 font-medium text-xs uppercase tracking-wider">Plan</th>
+                          <th className="text-left px-4 py-3 text-white/40 font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Telegram</th>
                           <th className="text-left px-4 py-3 text-white/40 font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Expires</th>
                           <th className="text-left px-4 py-3 text-white/40 font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Joined</th>
                         </tr>
@@ -307,10 +313,18 @@ export default function ControlPanelPage() {
                               <span className={`px-2 py-1 rounded-md text-xs font-semibold ${
                                 u.plan === 'pro' ? 'bg-purple-500/20 text-purple-300' :
                                 u.plan === 'starter' ? 'bg-blue-500/20 text-blue-300' :
+                                u.plan === 'trial' ? 'bg-yellow-500/20 text-yellow-300' :
                                 'bg-white/[0.06] text-white/40'
                               }`}>
                                 {(u.plan || 'free').toUpperCase()}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 hidden sm:table-cell">
+                              {u.telegram_linked ? (
+                                <span className="px-2 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-300">Linked</span>
+                              ) : (
+                                <span className="px-2 py-1 rounded-md text-xs font-semibold bg-white/[0.06] text-white/30">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-white/40 text-xs hidden sm:table-cell">
                               {u.subscription_end ? new Date(u.subscription_end).toLocaleDateString() : '—'}

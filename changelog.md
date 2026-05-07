@@ -1,3 +1,29 @@
+## [2026-05-07T15:14:00-07:00]
+### Fixed — Bybit Demo API Key Validation
+- **File:** `apps/web/app/api/apikeys/route.ts`
+- **Problem:** Saving Bybit Demo API keys always failed with "Invalid API key or insufficient permissions". The code was assigning `bybit.urls['demotrading']` directly to `bybit.urls['api']`, but CCXT's demotrading URLs contain unresolved `{hostname}` template placeholders (e.g. `https://api-demo.{hostname}`). These were never resolved, so CCXT tried to connect to a literal `{hostname}` address instead of `api-demo.bybit.com`.
+- **Fix:** Manually resolve the hostname: `const demoBase = \`https://api-demo.\${bybit.hostname}\`;` and build a proper URL map. This now works for both demo and live Bybit keys, as well as Binance keys.
+
+### Fixed — Duplicate Telegram Bot Causing /start Handler Conflict
+- **Files:** `apps/bot/src/services/alertBot.ts` (DELETED), `apps/bot/src/jobs/dailySubscriptionCheck.ts`
+- **Problem:** Two separate `TelegramBot` instances were being created using the same bot token: `alertBot.ts` (always polling) and `telegramService.ts` (webhook mode). The `alertBot.ts` was intercepting user messages first with its OLD `/start` handler (which expected a userId, not a 6-digit code), so the OTP linking flow in `telegramService.ts` never ran. Users could not link their Telegram accounts.
+- **Fix:** Deleted `alertBot.ts` entirely. Updated `dailySubscriptionCheck.ts` to import `sendTelegramMessage` from `telegramService.ts` instead. Now there is a single bot instance using webhook mode, and the 6-digit OTP linking flow works correctly.
+
+### Fixed — Admin Control Panel Not Showing Real Data
+- **File:** `apps/web/app/api/admin/route.ts`, `apps/web/app/control-panel/page.tsx`
+- **Problem:** The admin panel's `/api/admin` route was querying `db.listDocuments('users', {})` — but the `users` collection only contains Telegram link data, not actual user accounts. Real users are stored in Cocobase's auth system. The panel showed 0 users, 0 metrics, and errored on collections that didn't exist yet.
+- **Fix:** Replaced `db.listDocuments('users', {})` with `db.auth.listUsers()` to fetch actual registered users. Added graceful `try/catch` around all collection queries (`trade_logs`, `system_errors`, `payment_sessions`, `global_notifications`) so missing collections return empty arrays instead of crashing. Updated the user table to show a Telegram linked column and a `trial` plan badge.
+
+### Fixed — Telegram Linking "Check Status" Button UX
+- **File:** `apps/web/app/(dashboard)/dashboard/settings/page.tsx`
+- **Problem:** The "I've sent the code — check status" button had no loading indicator and no toast feedback. When clicked, if the user wasn't linked yet, nothing visible happened, making it seem broken.
+- **Fix:** Added a loading spinner + "Checking..." state, a toast message on failure ("Not linked yet — make sure you sent the code to the bot"), and a "Generate a new code" button.
+
+### Fixed — Notification Service Telegram Chat Lookup
+- **File:** `apps/bot/src/services/notificationService.ts`
+- **Problem:** `getUserTelegramChatId()` only checked `db.auth.getUserById()` for `telegram_user_id`, but the Telegram bot stores link data in the `users` collection instead. Notifications were never delivered because the chat ID was never found.
+- **Fix:** Now checks both locations: first the auth user data, then the `users` collection.
+
 ## [2026-05-07T14:20:00-07:00]
 ### Fixed — Fly.io Production Crash Loop (Environment Variables + Lazy Init)
 - **Files:** `apps/bot/src/listener/telegramListener.ts`

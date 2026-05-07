@@ -57,8 +57,17 @@ export async function POST(req: NextRequest) {
         const bybit = new ccxt.bybit(bybitOpts);
 
         if (demoMode) {
-          // Bybit Demo Trading uses the demotrading URLs built into CCXT
-          bybit.urls['api'] = (bybit.urls as any)['demotrading'];
+          // Bybit Demo Trading: CCXT's demotrading URLs contain {hostname} templates
+          // that are never auto-resolved, so we must build the resolved URLs manually.
+          const hostname = (bybit as any).hostname || 'bybit.com';
+          const demoBase = `https://api-demo.${hostname}`;
+          bybit.urls['api'] = {
+            spot: demoBase,
+            futures: demoBase,
+            v2: demoBase,
+            public: demoBase,
+            private: demoBase,
+          };
         } else if (testnet) {
           bybit.setSandboxMode(true);
         }

@@ -1,5 +1,5 @@
 import { db } from '../db/cocobase.js';
-import { sendTradeAlert } from '../services/alertBot.js';
+import { sendTelegramMessage } from '../services/telegramService.js';
 
 export async function runDailySubscriptionCheck() {
   console.log('🔄 Running daily subscription check...');
@@ -35,10 +35,7 @@ export async function runDailySubscriptionCheck() {
       });
 
       if (u.telegram_user_id) {
-        await sendTradeAlert(u.telegram_user_id, {
-          type: 'expiry',
-          message: `⛔ *Subscription Expired*\n\nYour bot has been paused.\n\nSend USDC to renew and reactivate → go to your dashboard Billing page.`,
-        } as any);
+        await sendTelegramMessage(u.telegram_user_id, `⛔ *Subscription Expired*\n\nYour bot has been paused.\n\nSend USDC to renew and reactivate → go to your dashboard Billing page.`);
       }
       console.log(`⛔ ${u.id} expired — downgraded to free`);
 
@@ -55,10 +52,7 @@ export async function runDailySubscriptionCheck() {
           ? `*Last day.* Your bot pauses tomorrow if you don't renew.`
           : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining on your *${u.plan?.toUpperCase()}* plan.`;
 
-        await sendTradeAlert(u.telegram_user_id, {
-          type: 'renewal_reminder',
-          message: `${emoji} *Subscription Reminder*\n\n${urgency}\n\nRenew now → dashboard → Billing.`,
-        } as any);
+        await sendTelegramMessage(u.telegram_user_id, `${emoji} *Subscription Reminder*\n\n${urgency}\n\nRenew now → dashboard → Billing.`);
       }
       console.log(`⏳ Reminder sent to ${u.id} — ${daysRemaining} day(s) left`);
 

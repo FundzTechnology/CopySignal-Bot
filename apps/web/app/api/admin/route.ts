@@ -26,40 +26,65 @@ export async function GET(req: NextRequest) {
   try {
     switch (action) {
       case 'overview': {
-        // Fetch all users
-        const users = await db.listDocuments('users', {}) as any[];
+        // Fetch real users from Cocobase auth system (not the 'users' collection)
+        let authUsers: any[] = [];
+        try {
+          authUsers = await db.auth.listUsers() as unknown as any[];
+        } catch {
+          authUsers = [];
+        }
         
         const now = new Date();
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-        // Fetch recent trades (last 24h)
-        const allTrades = await db.listDocuments('trade_logs', {}) as any[];
-        const recentTrades = allTrades.filter(t => t.created_at > oneDayAgo);
+        // Fetch recent trades (last 24h) — collection may not exist
+        let allTrades: any[] = [];
+        try {
+          allTrades = await db.listDocuments('trade_logs', {}) as any[];
+        } catch {
+          // Collection doesn't exist yet
+        }
+        const recentTrades = allTrades.filter(t => (t.created_at || t.data?.created_at) > oneDayAgo);
         
-        // Fetch recent errors
-        const allErrors = await db.listDocuments('system_errors', {}) as any[];
+        // Fetch recent errors — collection may not exist
+        let allErrors: any[] = [];
+        try {
+          allErrors = await db.listDocuments('system_errors', {}) as any[];
+        } catch {
+          // Collection doesn't exist yet
+        }
         const recentErrors = allErrors
-          .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .sort((a: any, b: any) => new Date(b.timestamp || b.data?.timestamp || 0).getTime() - new Date(a.timestamp || a.data?.timestamp || 0).getTime())
           .slice(0, 20);
 
-        // Fetch payment sessions
-        const sessions = await db.listDocuments('payment_sessions', {}) as any[];
+        // Fetch payment sessions — collection may not exist
+        let sessions: any[] = [];
+        try {
+          sessions = await db.listDocuments('payment_sessions', {}) as any[];
+        } catch {
+          // Collection doesn't exist yet
+        }
         const stuckSessions = sessions.filter((s: any) => {
-          if (s.status !== 'pending') return false;
-          const created = new Date(s.created_at).getTime();
+          if ((s.status || s.data?.status) !== 'pending') return false;
+          const created = new Date(s.created_at || s.data?.created_at).getTime();
           return (now.getTime() - created) > 60 * 60 * 1000; // >1hr
         });
 
-        // User breakdown
-        const onTrial = users.filter((u: any) => u.plan === 'free' || !u.plan);
-        const starter = users.filter((u: any) => u.plan === 'starter');
-        const pro = users.filter((u: any) => u.plan === 'pro');
+        // User breakdown — auth users store data in the .data field
+        const getUserData = (u: any) => u.data || u;
+        const onTrial = authUsers.filter((u: any) => {
+          const d = getUserData(u);
+          return d.plan === 'trial' || d.plan === 'free' || !d.plan;
+        });
+        const starter = authUsers.filter((u: any) => getUserData(u).plan === 'starter');
+        const pro = authUsers.filter((u: any) => getUserData(u).plan === 'pro');
         
         // Today's expired
         const todayStr = now.toISOString().split('T')[0];
-        const expiredToday = users.filter((u: any) => 
-          u.subscription_end && u.subscription_end.startsWith(todayStr)
-        );
+        const expiredToday = authUsers.filter((u: any) => {
+          const d = getUserData(u);
+          return d.plan_expires_at && d.plan_expires_at.startsWith(todayStr);
+        });
 
         return NextResponse.json({
           system: {
@@ -68,12 +93,12 @@ export async function GET(req: NextRequest) {
           },
           metrics_24h: {
             signals_received: recentTrades.length,
-            signals_executed: recentTrades.filter((t: any) => t.status === 'filled').length,
-            signals_skipped: recentTrades.filter((t: any) => t.status === 'skipped').length,
-            execution_errors: recentTrades.filter((t: any) => t.status === 'error').length,
+            signals_executed: recentTrades.filter((t: any) => (t.status || t.data?.status) === 'filled').length,
+            signals_skipped: recentTrades.filter((t: any) => (t.status || t.data?.status) === 'skipped').length,
+            execution_errors: recentTrades.filter((t: any) => (t.status || t.data?.status) === 'error').length,
           },
           users: {
-            total: users.length,
+            total: authUsers.length,
             on_trial: onTrial.length,
             starter: starter.length,
             pro: pro.length,
@@ -88,22 +113,37 @@ export async function GET(req: NextRequest) {
       }
 
       case 'users': {
-        const users = await db.listDocuments('users', {}) as any[];
-        const sanitized = users.map((u: any) => ({
-          id: u.id || u._id,
-          email: u.email,
-          username: u.username || u.data?.username,
-          plan: u.plan || 'free',
-          subscription_end: u.subscription_end,
-          created_at: u.created_at,
-        }));
+        // Fetch real users from Cocobase auth
+        let authUsers: any[] = [];
+        try {
+          authUsers = await db.auth.listUsers() as unknown as any[];
+        } catch {
+          authUsers = [];
+        }
+        const sanitized = authUsers.map((u: any) => {
+          const d = u.data || u;
+          return {
+            id: u.id || u._id,
+            email: d.email || u.email,
+            username: d.username,
+            plan: d.plan || 'free',
+            subscription_end: d.plan_expires_at || d.subscription_end,
+            telegram_linked: !!d.telegram_user_id,
+            created_at: d.created_at,
+          };
+        });
         return NextResponse.json(sanitized);
       }
 
       case 'notifications': {
-        const notifs = await db.listDocuments('global_notifications', {}) as any[];
+        let notifs: any[] = [];
+        try {
+          notifs = await db.listDocuments('global_notifications', {}) as any[];
+        } catch {
+          // Collection doesn't exist yet
+        }
         const sorted = notifs.sort((a: any, b: any) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          new Date(b.created_at || b.data?.created_at || 0).getTime() - new Date(a.created_at || a.data?.created_at || 0).getTime()
         );
         return NextResponse.json(sorted);
       }
