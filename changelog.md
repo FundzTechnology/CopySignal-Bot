@@ -1,3 +1,16 @@
+## [2026-05-07T14:20:00-07:00]
+### Fixed — Fly.io Production Crash Loop (Environment Variables + Lazy Init)
+- **Files:** `apps/bot/src/listener/telegramListener.ts`
+- **Problem:** The Fly.io machines were crash-looping and hitting the 10-restart limit. Two root causes:
+  1. **Missing Fly.io secrets:** The `.env` file is correctly excluded from the Docker image, but the environment variables were never set as Fly.io secrets via `flyctl secrets set`. The dotenvx loader showed `injected env (0)` — zero variables loaded.
+  2. **Module-level crash:** `telegramListener.ts` created the `TelegramClient` in the class constructor, and the singleton was exported at module scope (`export const telegramListener = new TelegramListener()`). This means `new TelegramClient()` ran at import time, before `boot()` even started. Since `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` were undefined, the constructor threw an uncatchable error.
+- **Fix:**
+  1. Refactored `TelegramListener` to use lazy initialization — the `TelegramClient` is now created inside `connect()`, not the constructor. Added env var validation that logs a clear error and returns gracefully instead of crashing.
+  2. Set all 13 required environment variables as Fly.io secrets via `flyctl secrets set` (COCOBASE_API_KEY, TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION, TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_WEBHOOK_URL, ENCRYPTION_KEY, SOLANA_MASTER_MNEMONIC, SUI_MASTER_MNEMONIC, SOLANA_MASTER_WALLET, SUI_MASTER_WALLET, HELIUS_API_KEY, HELIUS_WEBHOOK_URL).
+  3. Destroyed the duplicate Fly.io machine (8de507be102558) to prevent the Telegram `409 Conflict` polling error from two instances fighting over `getUpdates`.
+- **Verified:** Machine 178121e6fd6748 is now running with `✅ Bot is fully running. Waiting for signals...` and `✅ Telegram client connected`.
+- **Why:** This was the critical production blocker — the bot could never stay alive on Fly.io.
+
 ## [2026-05-07T14:08:00-07:00]
 ### Fixed — TypeScript Compile Error in API Keys Route
 - **File:** `apps/web/app/api/apikeys/route.ts`

@@ -2,27 +2,28 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage, NewMessageEvent } from "telegram/events/index.js";
 import { bufferMessage } from "../parser/messageBuffer.js";
-import * as dotenv from "dotenv";
-dotenv.config();
-
-const apiId = parseInt(process.env.TELEGRAM_API_ID!);
-const apiHash = process.env.TELEGRAM_API_HASH!;
-const sessionStr = process.env.TELEGRAM_SESSION!;
 
 class TelegramListener {
-  private client: TelegramClient;
+  private client: TelegramClient | null = null;
   private activeChannels: Map<string, { callback: (msg: string, msgId: string) => void, bufferWindowMs?: number }> = new Map();
 
-  constructor() {
+  async connect() {
+    const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
+    const apiHash = process.env.TELEGRAM_API_HASH || '';
+    const sessionStr = process.env.TELEGRAM_SESSION || '';
+
+    if (!apiId || !apiHash || !sessionStr) {
+      console.error('❌ Missing Telegram env vars (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION). Telegram listener disabled.');
+      return;
+    }
+
     this.client = new TelegramClient(
       new StringSession(sessionStr),
       apiId,
       apiHash,
       { connectionRetries: 5, retryDelay: 1000 }
     );
-  }
 
-  async connect() {
     await this.client.connect();
     console.log("✅ Telegram client connected");
 
