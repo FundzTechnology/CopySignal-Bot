@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (err: any) {
       console.error('[API Key Validation Failed]', err.message);
-      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Make sure your API key has "Read and Write" access and at least "Unified Trading" permissions enabled.' }, { status: 400 });
+      return NextResponse.json({ error: `Validation failed: ${err.message}` }, { status: 400 });
     }
     
     const doc = await db.createDocument("api_keys", {
