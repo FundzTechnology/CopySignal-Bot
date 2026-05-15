@@ -31,15 +31,25 @@ class TelegramListener {
       async (event: NewMessageEvent) => {
         const message = event.message;
         const text = message?.text || (message as any)?.message || '';
+        
+        console.log(`[GramJS Debug] Event Fired! Text: "${text.substring(0, 50).replace(/\n/g, ' ')}"`);
+        
         if (!text) return;
 
         const chat = await event.getChat().catch(() => null);
-        if (!chat) return;
+        
+        // Use peerId as fallback if getChat() fails (common for channels)
+        const peer = message.peerId as any;
+        const rawId = peer?.channelId || peer?.chatId || peer?.userId || chat?.id;
+        
+        console.log(`[GramJS Debug] Chat resolved: rawId=${rawId}, Username=${(chat as any)?.username}`);
+        
+        if (!rawId) return;
 
         const senderId = String(message.senderId || 'unknown');
-        const chatId = String(chat.id);
+        const chatId = String(rawId);
         const strippedChatId = chatId.replace('-100', '');
-        const username = (chat as any).username ? `@${(chat as any).username}` : null;
+        const username = chat && (chat as any).username ? `@${(chat as any).username}` : null;
         const messageId = String(message.id);
 
         for (const [channelKey, channelData] of this.activeChannels.entries()) {

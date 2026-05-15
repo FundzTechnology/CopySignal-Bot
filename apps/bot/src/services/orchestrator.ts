@@ -115,11 +115,19 @@ export async function handleSignal(
         return (d.user_id || k.user_id) === userId &&
                (d.exchange || k.exchange) === channelDoc.exchange;
       });
+      
+      if (!apiKeyDoc) {
+         console.log(`[Orchestrator DB Debug] Database has ${allKeys.length} total keys.`);
+         allKeys.forEach((k: any) => {
+           const d = k.data || k;
+           console.log(`[Orchestrator DB Debug] Found key for user: ${d.user_id || k.user_id}, Exchange: ${d.exchange || k.exchange}`);
+         });
+      }
     } catch {}
   }
 
   if (!apiKeyDoc) {
-    console.log(`[Orchestrator] ⏭️ No API key found for ${channelDoc.exchange} — skipping`);
+    console.log(`[Orchestrator] ⏭️ No API key found for ${channelDoc.exchange} for user ${userId} — skipping`);
     return;
   }
 
