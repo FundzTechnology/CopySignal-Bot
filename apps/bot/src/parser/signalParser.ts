@@ -53,10 +53,30 @@ export function parseSignal(rawText: string): ParsedSignal {
   };
 
   // ─── 1. SYMBOL DETECTION ─────────────────────────────────
+  // Match "ETHUSDT" (no slash)
   const usdtMatch = text.match(/\b([A-Z]{2,8})USDT\b/);
   if (usdtMatch) {
     result.symbol = usdtMatch[1] + 'USDT';
-  } else {
+  }
+  
+  // Match "ETH/USDT" or "ETH/USDT:USDT" (with slash — common in formatted signals)
+  if (!result.symbol) {
+    const slashMatch = text.match(/\b([A-Z]{2,8})\/USDT(?::USDT)?\b/);
+    if (slashMatch) {
+      result.symbol = slashMatch[1] + 'USDT';
+    }
+  }
+
+  // Match "ETH USDT" (with space)
+  if (!result.symbol) {
+    const spaceMatch = text.match(/\b([A-Z]{2,8})\s+USDT\b/);
+    if (spaceMatch) {
+      result.symbol = spaceMatch[1] + 'USDT';
+    }
+  }
+
+  // Fallback: match known symbols from the PATTERNS list
+  if (!result.symbol) {
     for (const sym of PATTERNS.symbols) {
       if (new RegExp(`\\b${sym}\\b`).test(text)) {
         result.symbol = sym + 'USDT';

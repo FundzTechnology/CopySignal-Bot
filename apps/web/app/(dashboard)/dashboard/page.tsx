@@ -6,8 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import TradeFeed from '@/components/dashboard/TradeFeed';
 import StatsCards from '@/components/dashboard/StatsCards';
 import PnlChart from '@/components/dashboard/PnlChart';
-import AddChannelForm from '@/components/dashboard/AddChannelForm';
-import AddApiKeyForm from '@/components/dashboard/AddApiKeyForm';
 import { Activity, Bot, ChevronRight } from 'lucide-react';
 import { useBotStatus } from '@/context/BotStatusContext';
 
@@ -22,18 +20,53 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    Promise.all([
-      db.listDocuments("trade_logs", { filters: { user_id: user.id } }),
-      db.listDocuments("channels", { filters: { user_id: user.id } })
-    ]).then(([tradeDocs, channelDocs]) => {
-      setTrades((tradeDocs as any[]).sort((a: any, b: any) =>
-        new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime()
-      ));
-      setChannels(channelDocs as any[]);
-      setTradesLoading(false);
-      setChannelsLoading(false);
-      refreshBotStatus();
-    });
+    // Fetch trades and channels — handle .data nesting
+    const fetchData = async () => {
+      try {
+        let tradeDocs: any[] = [];
+        let channelDocs: any[] = [];
+
+        try {
+          tradeDocs = await db.listDocuments("trade_logs", { filters: { user_id: user.id } }) as any[];
+        } catch {}
+        if (tradeDocs.length === 0) {
+          try {
+            const all = await db.listDocuments("trade_logs", {}) as any[];
+            tradeDocs = all.filter((r: any) => (r.data?.user_id || r.user_id) === user.id);
+          } catch {}
+        }
+
+        try {
+          channelDocs = await db.listDocuments("channels", { filters: { user_id: user.id } }) as any[];
+        } catch {}
+        if (channelDocs.length === 0) {
+          try {
+            const all = await db.listDocuments("channels", {}) as any[];
+            channelDocs = all.filter((r: any) => (r.data?.user_id || r.user_id) === user.id);
+          } catch {}
+        }
+
+        // Unwrap trades
+        const unwrappedTrades = tradeDocs.map((t: any) => {
+          const d = t.data || t;
+          return { id: t.id, ...d };
+        });
+        unwrappedTrades.sort((a: any, b: any) =>
+          new Date(b.executed_at || b.created_at).getTime() - new Date(a.executed_at || a.created_at).getTime()
+        );
+
+        setTrades(unwrappedTrades);
+        setChannels(channelDocs);
+      } catch (err) {
+        console.error('Dashboard data fetch error:', err);
+      } finally {
+        setTradesLoading(false);
+        setChannelsLoading(false);
+        refreshBotStatus();
+      }
+    };
+
+    fetchData();
 
     // Watch for new trades in real time using correct Cocobase realtime API
     const watcher = db.realtime.collection("trade_logs", { user_id: user.id });
@@ -138,12 +171,6 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-
-      {/* Channel & API Key Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AddChannelForm userId={user.id} />
-        <AddApiKeyForm userId={user.id} />
-      </div>
     </div>
   );
 }

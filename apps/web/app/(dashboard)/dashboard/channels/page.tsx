@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/cocobase';
-import { Plus, Trash2, Hash, Rss, Activity, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Hash, Rss, Activity, ShieldAlert, Percent, ArrowDownUp } from 'lucide-react';
 
 interface Channel {
   id: string;
   name: string;
   telegram_id: string;
+  exchange: string;
+  risk_percent: number;
   is_active: boolean;
   created_at: string;
 }
@@ -21,6 +23,8 @@ export default function ChannelsPage() {
   // Form State
   const [name, setName] = useState('');
   const [telegramId, setTelegramId] = useState('');
+  const [exchange, setExchange] = useState('bybit');
+  const [riskPercent, setRiskPercent] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,13 +32,35 @@ export default function ChannelsPage() {
     if (!user) return;
     try {
       setLoading(true);
-      const res = await db.listDocuments('channels', {
-        filters: { user_id: user.id }
+
+      let docs: any[] = [];
+      try {
+        docs = await db.listDocuments('channels', { filters: { user_id: user.id } }) as any[];
+      } catch {}
+
+      // Fallback: Cocobase .data nesting
+      if (docs.length === 0) {
+        try {
+          const all = await db.listDocuments('channels', {}) as any[];
+          docs = all.filter((r: any) => {
+            const d = r.data || r;
+            return (d.user_id || r.user_id) === user.id;
+          });
+        } catch {}
+      }
+
+      const mapped = docs.map((r: any) => {
+        const d = r.data || r;
+        return {
+          id: r.id || r._id,
+          name: d.name || r.name || 'Unnamed',
+          telegram_id: d.telegram_id || d.telegram_channel_id || r.telegram_id || 'Unknown',
+          exchange: d.exchange || r.exchange || 'bybit',
+          risk_percent: d.risk_percent || r.risk_percent || 1,
+          is_active: d.is_active ?? r.is_active ?? true,
+          created_at: d.created_at || r.created_at || new Date().toISOString(),
+        };
       });
-      const mapped = res.map((r: any) => ({
-        id: r.id,
-        ...r.data,
-      }));
       setChannels(mapped);
     } catch (err: any) {
       console.error(err);
@@ -52,6 +78,9 @@ export default function ChannelsPage() {
     e.preventDefault();
     if (!user) return;
     
+    // Validate risk percent
+    const clampedRisk = Math.min(Math.max(riskPercent, 0.1), 10);
+
     setSubmitting(true);
     setError(null);
     try {
@@ -61,8 +90,8 @@ export default function ChannelsPage() {
         telegram_id: telegramId,
         telegram_channel_id: telegramId,   // bot reads this field
         channel_username: telegramId.startsWith('@') ? telegramId : undefined,
-        exchange: 'bybit',                 // default exchange
-        risk_percent: 1,                   // default 1% risk per trade
+        exchange,
+        risk_percent: clampedRisk,
         trigger_keyword: '',               // empty = accept all messages
         allow_medium_confidence: true,
         is_active: true,
@@ -70,6 +99,8 @@ export default function ChannelsPage() {
       });
       setName('');
       setTelegramId('');
+      setExchange('bybit');
+      setRiskPercent(1);
       await fetchChannels();
     } catch (err: any) {
       setError(err.message || 'Failed to add channel.');
@@ -142,6 +173,58 @@ export default function ChannelsPage() {
               </div>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-muted-foreground text-sm font-medium">Exchange</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                  <ArrowDownUp className="h-4 w-4" />
+                </div>
+                <select
+                  value={exchange}
+                  onChange={e => setExchange(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm appearance-none cursor-pointer"
+                >
+                  <option value="bybit">Bybit</option>
+                  <option value="binance">Binance</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-muted-foreground text-sm font-medium">
+                Risk Per Trade (%)
+                <span className="text-muted-foreground/60 ml-1">max 10%</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                  <Percent className="h-4 w-4" />
+                </div>
+                <input
+                  type="number"
+                  required
+                  min={0.1}
+                  max={10}
+                  step={0.1}
+                  value={riskPercent}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    if (val > 10) {
+                      setRiskPercent(10);
+                    } else {
+                      setRiskPercent(val);
+                    }
+                  }}
+                  placeholder="1"
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3.5 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground/60">
+                The stop loss of each trade won't risk more than this % of your account balance.
+              </p>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={submitting}
@@ -182,7 +265,7 @@ export default function ChannelsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {channels.map(channel => (
-              <div key={channel.id} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+              <div key={channel.id} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col justify-between min-h-[180px]">
                 {/* Decorative background element */}
                 <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors pointer-events-none" />
                 
@@ -193,11 +276,20 @@ export default function ChannelsPage() {
                       {channel.is_active ? 'Active' : 'Inactive'}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
                     <Hash className="h-3.5 w-3.5" />
                     <code className="text-sm font-mono bg-secondary px-1.5 py-0.5 rounded truncate">
                       {channel.telegram_id}
                     </code>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className={`px-2 py-0.5 rounded-md font-bold uppercase ${channel.exchange === 'bybit' ? 'bg-orange-500/10 text-orange-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                      {channel.exchange}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Percent className="h-3 w-3" />
+                      {channel.risk_percent}% risk
+                    </span>
                   </div>
                 </div>
                 

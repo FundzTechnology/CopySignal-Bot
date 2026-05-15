@@ -46,38 +46,37 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Validate API Key ─────────────────────────────────────────────────
-    let balance;
+    // NOTE: Users may NOT enable "Assets" permission on Bybit, which means
+    // fetchBalance() will fail. We try fetchBalance first, then fall back to
+    // fetchOpenOrders/fetchPositions which only need "Trade" permissions.
+    let validated = false;
     try {
       if (exchange === 'binance') {
         const binance = new ccxt.binance({ apiKey, secret: apiSecret, enableRateLimit: false });
         if (testnet) binance.setSandboxMode(true);
-        balance = await binance.fetchBalance();
+        await binance.fetchBalance();
+        validated = true;
       } else if (exchange === 'bybit') {
         const bybitOpts: any = { apiKey, secret: apiSecret, enableRateLimit: false };
         const bybit = new ccxt.bybit(bybitOpts);
 
         if (demoMode) {
           // Bybit Demo Trading: override ALL URL keys to the demo endpoint.
-          // CCXT v4+ uses nested keys like v5, linear, inverse, spot, etc.
-          // We must override every single one, not just a few.
           const hostname = (bybit as any).hostname || 'bybit.com';
           const demoBase = `https://api-demo.${hostname}`;
           
           const currentApi = (bybit.urls as any)['api'];
           if (typeof currentApi === 'object' && currentApi !== null) {
-            // Override every key in the existing API URL map
             for (const key of Object.keys(currentApi)) {
               if (typeof currentApi[key] === 'string') {
                 currentApi[key] = demoBase;
               } else if (typeof currentApi[key] === 'object' && currentApi[key] !== null) {
-                // Some keys have nested objects (e.g., { public: '...', private: '...' })
                 for (const subKey of Object.keys(currentApi[key])) {
                   currentApi[key][subKey] = demoBase;
                 }
               }
             }
           } else {
-            // Flat URL — just override it
             (bybit.urls as any)['api'] = demoBase;
           }
           
@@ -86,19 +85,36 @@ export async function POST(req: NextRequest) {
           bybit.setSandboxMode(true);
         }
 
-        // Try Unified Trading Account first (most new Bybit accounts use UTA)
+        // Strategy: Try multiple endpoints in order of permission requirements.
+        // fetchBalance needs "Assets/Account" permission (user may NOT have this)
+        // fetchOpenOrders needs only "Trade" permission (user likely has this)
+        
+        // Attempt 1: fetchBalance (requires Assets permission)
         try {
-          balance = await bybit.fetchBalance({ type: 'unified' });
-          console.log('[API Key Validation] Bybit UTA fetchBalance succeeded');
-        } catch (utaErr: any) {
-          console.log('[API Key Validation] UTA fetchBalance failed, trying spot:', utaErr.message);
+          await bybit.fetchBalance({ type: 'unified' });
+          console.log('[API Key Validation] Bybit fetchBalance(unified) succeeded');
+          validated = true;
+        } catch (balErr: any) {
+          console.log('[API Key Validation] fetchBalance failed:', balErr.message);
+          
+          // Attempt 2: fetchOpenOrders (requires only Trade permission)
           try {
-            balance = await bybit.fetchBalance({ type: 'spot' });
-            console.log('[API Key Validation] Bybit spot fetchBalance succeeded');
-          } catch (spotErr: any) {
-            console.log('[API Key Validation] spot fetchBalance failed, trying default:', spotErr.message);
-            // Final fallback to default
-            balance = await bybit.fetchBalance();
+            await bybit.fetchOpenOrders('BTC/USDT:USDT');
+            console.log('[API Key Validation] Bybit fetchOpenOrders succeeded');
+            validated = true;
+          } catch (ordErr: any) {
+            console.log('[API Key Validation] fetchOpenOrders failed:', ordErr.message);
+            
+            // Attempt 3: fetchPositions (requires only Trade permission)
+            try {
+              await bybit.fetchPositions(['BTC/USDT:USDT']);
+              console.log('[API Key Validation] Bybit fetchPositions succeeded');
+              validated = true;
+            } catch (posErr: any) {
+              console.log('[API Key Validation] fetchPositions failed:', posErr.message);
+              // All attempts failed — this key is truly invalid
+              throw new Error(`API key validation failed. Last error: ${posErr.message}`);
+            }
           }
         }
       } else {
@@ -106,8 +122,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (err: any) {
       console.error('[API Key Validation Failed]', err.message);
-      console.error('[API Key Validation] Full error:', JSON.stringify({ name: err.name, message: err.message }, null, 2));
-      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Please check your credentials and ensure your API key has "Read" and "Trade" permissions enabled.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Make sure your API key has "Read and Write" access and at least "Unified Trading" permissions enabled.' }, { status: 400 });
     }
     
     const doc = await db.createDocument("api_keys", {
