@@ -61,7 +61,7 @@ export async function executeBybit(
          throw new Error(`Insufficient USDT balance (Account Type: ${balanceRes?.result?.list?.[0]?.accountType || 'UNKNOWN'}, Found: ${balanceString})`);
       }
 
-      // ── Step 2: Calculate position size ──
+      // ── Step 2: Calculate raw position size ──
       const sizing = calculatePositionSize({
         accountBalance: balance,
         riskPercent,
@@ -74,7 +74,27 @@ export async function executeBybit(
         throw new Error(`Trade would use excessive margin: ${(sizing.margin / balance * 100).toFixed(1)}%`);
       }
 
-      // ── Step 3: Set leverage ──
+      // ── Step 3: Fetch Instrument Info for exact Qty formatting ──
+      const instrumentRes = await client.getInstrumentsInfo({
+        category: 'linear',
+        symbol: signal.symbol!
+      });
+      const instrumentInfo = instrumentRes.result?.list?.[0];
+      const qtyStepStr = instrumentInfo?.lotSizeFilter?.qtyStep || '0.1';
+      const minQtyStr = instrumentInfo?.lotSizeFilter?.minOrderQty || '0.1';
+      
+      // Round raw qty down to the nearest allowed step size
+      const qtyStep = parseFloat(qtyStepStr);
+      let roundedQty = Math.floor(sizing.qty / qtyStep) * qtyStep;
+
+      // Ensure we meet the minimum required quantity
+      if (roundedQty < parseFloat(minQtyStr)) roundedQty = parseFloat(minQtyStr);
+
+      // Format to the correct decimal places to satisfy Bybit API constraints
+      const qtyDecimals = qtyStepStr.includes('.') ? qtyStepStr.split('.')[1].length : 0;
+      const finalQtyStr = roundedQty.toFixed(qtyDecimals);
+
+      // ── Step 4: Set leverage ──
       try {
         await client.setLeverage({
           category: 'linear',
@@ -84,18 +104,16 @@ export async function executeBybit(
         });
       } catch (e: any) {
         // Ignore "leverage not modified" error, throw others
-        if (!e.message?.includes('not modified')) {
-          throw e;
-        }
+        if (!e.message?.includes('not modified')) throw e;
       }
 
-      // ── Step 4: Place market order ──
+      // ── Step 5: Place market order ──
       const orderRes = await client.submitOrder({
         category: 'linear',
         symbol: signal.symbol!,
         side: signal.side as 'Buy' | 'Sell',
         orderType: 'Market',
-        qty: String(sizing.qty),
+        qty: finalQtyStr,
         takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
         stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
         tpTriggerBy: 'LastPrice',
