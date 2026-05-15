@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     let telegramUsername = null;
 
     // Check the custom 'users' collection where the bot stores telegram link data
+    // Try filtered query first
     try {
       const userDocs = await db.listDocuments('users', {
         filters: { user_id: userId }
@@ -69,11 +70,30 @@ export async function GET(req: NextRequest) {
 
       if (userDocs.length > 0) {
         const doc = userDocs[0];
-        telegramChatId = doc.telegram_user_id || doc.data?.telegram_user_id;
-        telegramUsername = doc.telegram_username || doc.data?.telegram_username;
+        const d = doc.data || doc;
+        telegramChatId = d.telegram_user_id || doc.telegram_user_id;
+        telegramUsername = d.telegram_username || doc.telegram_username;
       }
     } catch {
-      // Collection may not exist yet
+      // filter may not work
+    }
+
+    // Fallback: Cocobase wraps fields in .data — filter won't match data.user_id
+    if (!telegramChatId) {
+      try {
+        const allDocs = await db.listDocuments('users', {}) as any[];
+        const match = allDocs.find((doc: any) => {
+          const d = doc.data || doc;
+          return (d.user_id || doc.user_id) === userId;
+        });
+        if (match) {
+          const d = match.data || match;
+          telegramChatId = d.telegram_user_id || match.telegram_user_id;
+          telegramUsername = d.telegram_username || match.telegram_username;
+        }
+      } catch {
+        // Collection may not exist yet
+      }
     }
 
     return NextResponse.json({

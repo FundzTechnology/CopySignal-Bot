@@ -24,13 +24,39 @@ export default function TradesPage() {
     
     const fetchTrades = async () => {
       try {
-        const res = await db.listDocuments('trade_logs', {
-          filters: { user_id: user.id }
+        let trades: any[] = [];
+        
+        // Try filtered query first
+        try {
+          trades = await db.listDocuments('trade_logs', {
+            filters: { user_id: user.id }
+          }) as any[];
+        } catch {}
+
+        // Fallback: fetch all and filter in code (Cocobase .data nesting)
+        if (trades.length === 0) {
+          try {
+            const all = await db.listDocuments('trade_logs', {}) as any[];
+            trades = all.filter((r: any) => {
+              const d = r.data || r;
+              return (d.user_id || r.user_id) === user.id;
+            });
+          } catch {}
+        }
+
+        const mapped = trades.map((r: any) => {
+          const d = r.data || r;
+          return {
+            id: r.id || r._id,
+            symbol: d.symbol || r.symbol,
+            side: (d.side || r.side || '').toUpperCase(),
+            entry_price: d.entry_price || r.entry_price,
+            status: (d.status || r.status || '').toUpperCase(),
+            pnl_usdt: d.pnl_usdt || r.pnl_usdt,
+            created_at: d.created_at || d.executed_at || r.created_at || r.executed_at,
+            error_msg: d.error_msg || r.error_msg,
+          };
         });
-        const mapped = res.map((r: any) => ({
-          id: r.id,
-          ...r.data,
-        }));
         // Sort by newest first
         mapped.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setTrades(mapped);

@@ -76,14 +76,42 @@ async function boot() {
   console.log(`📡 Loading ${channels.length} active channels...`);
 
   for (const channel of channels) {
+    // Cocobase wraps fields inside .data — unwrap for consistent access
+    const ch = (channel as any).data || channel;
     const chanId =
-      (channel as any).telegram_channel_id || (channel as any).channel_username;
+      ch.telegram_channel_id ||
+      ch.telegram_id ||
+      ch.channel_username ||
+      (channel as any).telegram_channel_id ||
+      (channel as any).telegram_id ||
+      (channel as any).channel_username;
+
+    if (!chanId) {
+      console.warn(`⚠️ Channel "${ch.name || (channel as any).name || 'unknown'}" has no telegram ID — skipping`);
+      continue;
+    }
+
+    // Build a normalized channel doc with all fields the orchestrator needs
+    const channelDoc = {
+      id: (channel as any).id || (channel as any)._id,
+      user_id: ch.user_id || (channel as any).user_id,
+      name: ch.name || (channel as any).name,
+      exchange: ch.exchange || (channel as any).exchange || 'bybit',
+      risk_percent: ch.risk_percent || (channel as any).risk_percent || 1,
+      trigger_keyword: ch.trigger_keyword || (channel as any).trigger_keyword || '',
+      allow_medium_confidence: ch.allow_medium_confidence ?? (channel as any).allow_medium_confidence ?? true,
+      buffer_window_seconds: ch.buffer_window_seconds || (channel as any).buffer_window_seconds,
+      is_active: true,
+    };
+
+    console.log(`  📡 Subscribing to: ${chanId} (${channelDoc.name}) [${channelDoc.exchange}]`);
+
     telegramListener.addChannel(
       chanId,
       (message: string, messageId: string) => {
-        handleSignal(message, messageId, channel);
+        handleSignal(message, messageId, channelDoc);
       },
-      (channel as any).buffer_window_seconds
+      channelDoc.buffer_window_seconds
     );
   }
 
@@ -92,24 +120,42 @@ async function boot() {
   channelWatcher.connect();
 
   channelWatcher.onCreate((event: any) => {
-    if (event.data?.is_active) {
-      console.log(`🆕 New channel added: ${event.data.channel_name}`);
+    const ch = event.data || event;
+    if (ch.is_active) {
+      const chanId = ch.telegram_channel_id || ch.telegram_id || ch.channel_username;
+      if (!chanId) return;
+      console.log(`🆕 New channel added: ${ch.name || ch.channel_name}`);
+
+      const channelDoc = {
+        id: event.id || event._id,
+        user_id: ch.user_id,
+        name: ch.name || ch.channel_name,
+        exchange: ch.exchange || 'bybit',
+        risk_percent: ch.risk_percent || 1,
+        trigger_keyword: ch.trigger_keyword || '',
+        allow_medium_confidence: ch.allow_medium_confidence ?? true,
+        buffer_window_seconds: ch.buffer_window_seconds,
+        is_active: true,
+      };
+
       telegramListener.addChannel(
-        event.data.telegram_channel_id || event.data.channel_username,
+        chanId,
         (message: string, messageId: string) => {
-          handleSignal(message, messageId, event.data);
+          handleSignal(message, messageId, channelDoc);
         },
-        event.data.buffer_window_seconds
+        channelDoc.buffer_window_seconds
       );
     }
   });
 
   channelWatcher.onUpdate((event: any) => {
-    if (!event.data?.is_active) {
-      console.log(`🔇 Channel deactivated: ${event.data.channel_name}`);
-      telegramListener.removeChannel(
-        event.data.telegram_channel_id || event.data.channel_username
-      );
+    const ch = event.data || event;
+    if (!ch.is_active) {
+      const chanId = ch.telegram_channel_id || ch.telegram_id || ch.channel_username;
+      if (chanId) {
+        console.log(`🔇 Channel deactivated: ${ch.name || ch.channel_name}`);
+        telegramListener.removeChannel(chanId);
+      }
     }
   });
 

@@ -101,22 +101,47 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
   if (!bot) return;
 
   try {
-    // 1. Find valid token
-    const tokens = await db.listDocuments('telegram_link_tokens', {
-      filters: { code, used: false }
-    }) as any[];
+    // 1. Find valid token — try filtered query first, then fallback to manual search
+    let matchedToken: any = null;
 
-    if (tokens.length === 0) {
+    try {
+      const tokens = await db.listDocuments('telegram_link_tokens', {
+        filters: { code, used: false }
+      }) as any[];
+
+      if (tokens.length > 0) {
+        matchedToken = tokens[0];
+      }
+    } catch {
+      // filter may have failed
+    }
+
+    // Fallback: if Cocobase wraps fields in .data, the filter won't match
+    if (!matchedToken) {
+      try {
+        const allTokens = await db.listDocuments('telegram_link_tokens', {}) as any[];
+        matchedToken = allTokens.find((t: any) => {
+          const d = t.data || t;
+          const tCode = d.code || t.code;
+          const tUsed = d.used ?? t.used;
+          return tCode === code && tUsed === false;
+        });
+      } catch {
+        // collection doesn't exist
+      }
+    }
+
+    if (!matchedToken) {
       await bot.sendMessage(chatId, `❌ Invalid or expired code. Please generate a new one in your dashboard settings.`);
       return;
     }
 
-    const token = tokens[0];
-    const tokenId = token.id || token._id;
-    const userId = token.user_id;
+    const d = matchedToken.data || matchedToken;
+    const tokenId = matchedToken.id || matchedToken._id;
+    const userId = d.user_id || matchedToken.user_id;
 
     // Check expiry
-    const expiresAt = token.expires_at || token.data?.expires_at;
+    const expiresAt = d.expires_at || matchedToken.expires_at;
     if (expiresAt && new Date(expiresAt) < new Date()) {
       await bot.sendMessage(chatId, `❌ This code has expired. Please generate a new one.`);
       return;
@@ -132,13 +157,29 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
     };
 
     try {
-      const existingUsers = await db.listDocuments('users', {
-        filters: { user_id: userId }
-      }) as any[];
+      // Try filtered query first
+      let existingDoc: any = null;
+      try {
+        const existingUsers = await db.listDocuments('users', {
+          filters: { user_id: userId }
+        }) as any[];
+        if (existingUsers.length > 0) existingDoc = existingUsers[0];
+      } catch {}
 
-      if (existingUsers.length > 0) {
+      // Fallback: fetch all and find by user_id in .data
+      if (!existingDoc) {
+        try {
+          const allUsers = await db.listDocuments('users', {}) as any[];
+          existingDoc = allUsers.find((u: any) => {
+            const ud = u.data || u;
+            return (ud.user_id || u.user_id) === userId;
+          });
+        } catch {}
+      }
+
+      if (existingDoc) {
         // Update existing document
-        const existingId = existingUsers[0].id || existingUsers[0]._id;
+        const existingId = existingDoc.id || existingDoc._id;
         await db.updateDocument('users', existingId, telegramData);
         console.log(`[TelegramService] Updated existing users doc ${existingId} with Telegram link`);
       } else {
@@ -151,17 +192,16 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
         console.log(`[TelegramService] Created new users doc for ${userId} with Telegram link`);
       }
     } catch (linkErr) {
-      console.error(`[TelegramService] Failed to update/create users doc, trying direct update:`, linkErr);
-      // Fallback: try updating by user_id directly (in case collection uses user_id as doc ID)
+      console.error(`[TelegramService] Failed to update/create users doc, trying direct create:`, linkErr);
+      // Last resort: create the document
       try {
-        await db.updateDocument('users', userId, telegramData);
-      } catch (fallbackErr) {
-        // Last resort: create the document
         await db.createDocument('users', {
           user_id: userId,
           ...telegramData,
           linked_at: new Date().toISOString(),
         });
+      } catch (createErr) {
+        console.error('[TelegramService] Final create also failed:', createErr);
       }
     }
 

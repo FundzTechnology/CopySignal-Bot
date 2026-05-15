@@ -1,3 +1,37 @@
+## [2026-05-15T11:04:00-07:00]
+### Fixed — Trade Signals Not Reaching Bot Engine (Critical)
+- **Files:** `apps/bot/src/index.ts`, `apps/web/app/(dashboard)/dashboard/channels/page.tsx`, `apps/bot/src/services/orchestrator.ts`
+- **Problem:** When a user posted a trade signal in their monitored Telegram channel, nothing happened — no trade was logged, no execution attempted. Root cause: the web dashboard saved the Telegram identifier as `telegram_id`, but the bot only looked for `telegram_channel_id` or `channel_username`. The channel ID resolved to `undefined`, so the Telegram listener never subscribed to any channel.
+- **Fix (index.ts):** Added fallback chain: reads `telegram_channel_id` → `telegram_id` → `channel_username` from both the top-level object and the `.data` wrapper. Also builds a normalized `channelDoc` with default values for `exchange` ('bybit'), `risk_percent` (1), `trigger_keyword` (''), and `allow_medium_confidence` (true) so the orchestrator has everything it needs.
+- **Fix (channels/page.tsx):** Now saves `telegram_channel_id` (copy of `telegram_id`), `channel_username` (if starts with @), `exchange`, `risk_percent`, `trigger_keyword`, and `allow_medium_confidence` alongside the existing fields.
+- **Fix (orchestrator.ts):** Added Cocobase `.data` nesting fallback for API key lookups. The filtered query `{ user_id, exchange }` fails when fields are wrapped in `.data`. Now fetches all keys and filters in code as fallback. Also unwraps the API key document before passing to executors. Added comprehensive logging at every gate in the pipeline.
+- **Why:** This was the #1 critical issue — the entire trade pipeline was broken because the listener never subscribed to any channel.
+
+### Fixed — Telegram "Account Linked" But Dashboard Shows "Not Linked" (Critical)
+- **Files:** `apps/bot/src/services/telegramService.ts`, `apps/web/app/api/telegram/link/route.ts`
+- **Problem:** The bot correctly confirmed "Account linked successfully!" but the dashboard's "Check Status" button always said "Not linked yet." Two root causes:
+  1. Cocobase wraps stored fields inside a `.data` property. Filter queries like `{ code, used: false }` and `{ user_id: userId }` don't match when the actual path is `data.code`, `data.used`, `data.user_id`.
+  2. The users collection lookup also failed for the same reason.
+- **Fix (telegramService.ts):** If the filtered token query returns 0 results, falls back to fetching ALL tokens and iterating in code to find the match. Same fallback for the users collection lookup.
+- **Fix (telegram/link/route.ts):** GET endpoint now has the same fallback — if filtered query returns 0, fetches all docs from `users` collection and finds the match by comparing `doc.data?.user_id`.
+- **Why:** The bot was successfully writing the link data, but the dashboard could never read it back.
+
+### Fixed — Bybit Demo API Key Validation Still Failing
+- **File:** `apps/web/app/api/apikeys/route.ts`
+- **Problem:** Bybit Demo API keys still failed validation because the previous fix only overrode `spot/futures/v2/public/private` URL keys, but CCXT v4+ routes Bybit API calls through the `v5` key. The `fetchBalance` call hit the live API instead of `api-demo.bybit.com`.
+- **Fix:** Instead of manually constructing a partial URL map, now iterates over ALL keys in `bybit.urls['api']` and overrides each one (including nested sub-objects) to the demo base URL. Also added a 3-tier fallback for `fetchBalance`: unified → spot → default. Added detailed error logging.
+- **Why:** Ensures the demo URL override is complete regardless of CCXT's internal URL structure.
+
+### Fixed — Admin Control Panel Password Rejected
+- **File:** `apps/web/app/api/admin/route.ts`
+- **Problem:** The admin password `Fundz&family1` was always rejected. The `&` character in environment variables can cause encoding issues on different hosting platforms, and whitespace differences between the env value and the header value caused exact-match failures.
+- **Fix:** Added `.trim()` on both the env variable value and the incoming `x-admin-token` header. Added debug logging that shows the character lengths and first/last characters (without revealing the full password) to diagnose mismatches.
+
+### Fixed — Trade History Page Not Showing Trades
+- **File:** `apps/web/app/(dashboard)/dashboard/trades/page.tsx`
+- **Problem:** Even when trades were logged to Cocobase, the trades page showed "No trades yet" because `r.data` spread didn't properly unwrap the nested fields, and filtered queries failed due to `.data` nesting.
+- **Fix:** Added the same fallback pattern (filtered query → fetch all + filter in code) and explicit field extraction from both `doc.data` and `doc` levels.
+
 ## [2026-05-07T15:14:00-07:00]
 ### Fixed — Bybit Demo API Key Validation
 - **File:** `apps/web/app/api/apikeys/route.ts`

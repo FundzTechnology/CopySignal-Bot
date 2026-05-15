@@ -57,17 +57,31 @@ export async function POST(req: NextRequest) {
         const bybit = new ccxt.bybit(bybitOpts);
 
         if (demoMode) {
-          // Bybit Demo Trading: CCXT's demotrading URLs contain {hostname} templates
-          // that are never auto-resolved, so we must build the resolved URLs manually.
+          // Bybit Demo Trading: override ALL URL keys to the demo endpoint.
+          // CCXT v4+ uses nested keys like v5, linear, inverse, spot, etc.
+          // We must override every single one, not just a few.
           const hostname = (bybit as any).hostname || 'bybit.com';
           const demoBase = `https://api-demo.${hostname}`;
-          bybit.urls['api'] = {
-            spot: demoBase,
-            futures: demoBase,
-            v2: demoBase,
-            public: demoBase,
-            private: demoBase,
-          };
+          
+          const currentApi = (bybit.urls as any)['api'];
+          if (typeof currentApi === 'object' && currentApi !== null) {
+            // Override every key in the existing API URL map
+            for (const key of Object.keys(currentApi)) {
+              if (typeof currentApi[key] === 'string') {
+                currentApi[key] = demoBase;
+              } else if (typeof currentApi[key] === 'object' && currentApi[key] !== null) {
+                // Some keys have nested objects (e.g., { public: '...', private: '...' })
+                for (const subKey of Object.keys(currentApi[key])) {
+                  currentApi[key][subKey] = demoBase;
+                }
+              }
+            }
+          } else {
+            // Flat URL — just override it
+            (bybit.urls as any)['api'] = demoBase;
+          }
+          
+          console.log('[API Key Validation] Bybit Demo mode — URLs overridden to:', demoBase);
         } else if (testnet) {
           bybit.setSandboxMode(true);
         }
@@ -75,16 +89,24 @@ export async function POST(req: NextRequest) {
         // Try Unified Trading Account first (most new Bybit accounts use UTA)
         try {
           balance = await bybit.fetchBalance({ type: 'unified' });
+          console.log('[API Key Validation] Bybit UTA fetchBalance succeeded');
         } catch (utaErr: any) {
-          console.log('[API Key Validation] UTA fetchBalance failed, trying default:', utaErr.message);
-          // Fallback to default fetchBalance for classic accounts
-          balance = await bybit.fetchBalance();
+          console.log('[API Key Validation] UTA fetchBalance failed, trying spot:', utaErr.message);
+          try {
+            balance = await bybit.fetchBalance({ type: 'spot' });
+            console.log('[API Key Validation] Bybit spot fetchBalance succeeded');
+          } catch (spotErr: any) {
+            console.log('[API Key Validation] spot fetchBalance failed, trying default:', spotErr.message);
+            // Final fallback to default
+            balance = await bybit.fetchBalance();
+          }
         }
       } else {
         throw new Error('Unsupported exchange');
       }
     } catch (err: any) {
       console.error('[API Key Validation Failed]', err.message);
+      console.error('[API Key Validation] Full error:', JSON.stringify({ name: err.name, message: err.message }, null, 2));
       return NextResponse.json({ error: 'Invalid API key or insufficient permissions. Please check your credentials and ensure your API key has "Read" and "Trade" permissions enabled.' }, { status: 400 });
     }
     

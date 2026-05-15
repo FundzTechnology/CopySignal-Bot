@@ -6,13 +6,26 @@ import { db } from '@/lib/cocobase';
  * Handles: system metrics, user management, global messaging.
  */
 
-// Admin password: compare against env var hash
-// To generate: node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('Fundz&family1', 12).then(h => console.log(h))"
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Fundz&family1';
+// Admin password: compare against env var
+// Fallback to hardcoded value if env is not set
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || 'Fundz&family1').trim();
 
 function verifyAdmin(req: NextRequest): boolean {
-  const authHeader = req.headers.get('x-admin-token');
-  return authHeader === ADMIN_PASSWORD;
+  const authHeader = (req.headers.get('x-admin-token') || '').trim();
+  
+  if (!authHeader) {
+    console.log('[Admin] No x-admin-token header provided');
+    return false;
+  }
+  
+  const match = authHeader === ADMIN_PASSWORD;
+  if (!match) {
+    // Debug: show lengths and first/last chars to diagnose encoding issues
+    console.log(`[Admin] Password mismatch — received length: ${authHeader.length}, expected length: ${ADMIN_PASSWORD.length}`);
+    console.log(`[Admin] Received first/last: "${authHeader[0]}...${authHeader[authHeader.length-1]}", Expected first/last: "${ADMIN_PASSWORD[0]}...${ADMIN_PASSWORD[ADMIN_PASSWORD.length-1]}"`);
+  }
+  
+  return match;
 }
 
 // GET — Fetch admin dashboard data

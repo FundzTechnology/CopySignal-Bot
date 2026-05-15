@@ -59,6 +59,12 @@ export default function ChannelsPage() {
         user_id: user.id,
         name,
         telegram_id: telegramId,
+        telegram_channel_id: telegramId,   // bot reads this field
+        channel_username: telegramId.startsWith('@') ? telegramId : undefined,
+        exchange: 'bybit',                 // default exchange
+        risk_percent: 1,                   // default 1% risk per trade
+        trigger_keyword: '',               // empty = accept all messages
+        allow_medium_confidence: true,
         is_active: true,
         created_at: new Date().toISOString()
       });
