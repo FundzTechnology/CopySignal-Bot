@@ -41,8 +41,8 @@ export function calculatePositionSize(params: RiskParams): PositionSizing {
   return { qty, riskAmount, positionValue, margin };
 }
 
-// Safety check — never use more than 5% of balance as margin
+// Safety check — never use more than 80% of balance as margin (to prevent immediate liquidation)
 export function isSafeToTrade(sizing: PositionSizing, balance: number): boolean {
   const marginPercent = (sizing.margin / balance) * 100;
-  return marginPercent <= 5;
+  return marginPercent <= 80;
 }
