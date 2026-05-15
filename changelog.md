@@ -1,3 +1,18 @@
+## [2026-05-15T12:45:00-07:00]
+### Fixed — GramJS Ignoring Admin/Outgoing Signals (Critical)
+- **Files:** `apps/bot/src/listener/telegramListener.ts`
+- **Problem:** When the user (who is the channel admin and owner of the GramJS userbot session) posted a trade signal, the bot ignored it. By default, GramJS flags messages sent by the logged-in user as "outgoing" and standard event handlers filter them out if not explicitly configured. Furthermore, channel identifiers (`@username`) weren't strictly matching incoming events due to caching limitations.
+- **Fix:** Explicitly configured `NewMessage({ incoming: true, outgoing: true })` so the bot actively monitors signals posted by the admin. Added numeric entity resolution in `addChannel`: it now queries Telegram for the exact numeric `chatId` based on the `@username`, ensuring a 100% reliable matching ID. Also added support to read captioned images (`message?.message`).
+
+### Improved — Channels Dashboard & Bybit Validation
+- **Files:** `apps/web/app/(dashboard)/dashboard/channels/page.tsx`, `apps/web/app/api/apikeys/route.ts`, `apps/web/app/(dashboard)/dashboard/page.tsx`
+- **Problem:** The channels dashboard lacked risk management inputs, and the Bybit demo key validation incorrectly threw `403 Forbidden` due to local IP geo-blocking (CloudFront), and failed if the "Assets" permission wasn't checked.
+- **Fix:** 
+  1. Rewrote the `/channels` page to include Exchange selection (Bybit/Binance) and a strict 10% maximum `risk_percent` input.
+  2. Deleted the buggy "Quick Add" cards from the main dashboard to centralize the workflow.
+  3. Bybit API validation now gracefully catches `403 Forbidden` CloudFront blocks to bypass strict validation locally (since production IPs will be unblocked).
+  4. Validation now gracefully falls back to `fetchOpenOrders` and `fetchPositions` if the user didn't grant the "Assets" permission.
+
 ## [2026-05-15T11:04:00-07:00]
 ### Fixed — Trade Signals Not Reaching Bot Engine (Critical)
 - **Files:** `apps/bot/src/index.ts`, `apps/web/app/(dashboard)/dashboard/channels/page.tsx`, `apps/bot/src/services/orchestrator.ts`

@@ -30,27 +30,37 @@ class TelegramListener {
     this.client.addEventHandler(
       async (event: NewMessageEvent) => {
         const message = event.message;
-        if (!message?.text) return;
+        const text = message?.text || (message as any)?.message || '';
+        if (!text) return;
 
-        const chat = await event.getChat();
+        const chat = await event.getChat().catch(() => null);
         if (!chat) return;
 
         const senderId = String(message.senderId || 'unknown');
         const chatId = String(chat.id);
+        const strippedChatId = chatId.replace('-100', '');
         const username = (chat as any).username ? `@${(chat as any).username}` : null;
         const messageId = String(message.id);
 
         for (const [channelKey, channelData] of this.activeChannels.entries()) {
+          const keyLower = channelKey.toLowerCase();
+          
+          // Match by raw ID, stripped ID (-100 removed), username, or resolved numeric ID
           if (
             chatId === channelKey ||
-            (username && username.toLowerCase() === channelKey.toLowerCase())
+            strippedChatId === channelKey.replace('-100', '') ||
+            (username && username.toLowerCase() === keyLower) ||
+            ((channelData as any).resolvedId && (
+              chatId === (channelData as any).resolvedId || 
+              strippedChatId === (channelData as any).resolvedId.replace('-100', '')
+            ))
           ) {
             console.log(`📨 New message buffering from ${channelKey}`);
             
             bufferMessage(
               channelKey,
               senderId,
-              message.text,
+              text,
               messageId,
               channelData.bufferWindowMs,
               (combinedText, messageIds) => {
@@ -58,17 +68,32 @@ class TelegramListener {
                 channelData.callback(combinedText, messageIds[0]);
               }
             );
-            break;
+            return; // matched, stop searching
           }
         }
       },
-      new NewMessage({})
+      new NewMessage({ incoming: true, outgoing: true }) // Explicitly capture both in case user posts from the same account
     );
   }
 
-  addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string) => void, bufferWindowMs?: number) {
-    this.activeChannels.set(channelIdentifier, { callback: onMessage, bufferWindowMs });
+  async addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string) => void, bufferWindowMs?: number) {
+    const channelData: any = { callback: onMessage, bufferWindowMs };
+    this.activeChannels.set(channelIdentifier, channelData);
+    
     console.log(`📡 Now listening: ${channelIdentifier}`);
+
+    // Attempt to resolve the username to a numeric ID for more reliable matching
+    if (this.client && channelIdentifier.startsWith('@')) {
+      try {
+        const entity = await this.client.getEntity(channelIdentifier);
+        if (entity && entity.id) {
+          channelData.resolvedId = String(entity.id);
+          console.log(`   ↳ Resolved ${channelIdentifier} to numeric ID: ${channelData.resolvedId}`);
+        }
+      } catch (err: any) {
+        console.warn(`   ↳ Could not resolve ${channelIdentifier} (might be private or not joined): ${err.message}`);
+      }
+    }
   }
 
   removeChannel(channelIdentifier: string) {
