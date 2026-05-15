@@ -46,11 +46,20 @@ export async function executeBybit(
   while (attempt < MAX_RETRIES) {
     try {
       // ── Step 1: Get account balance ──
-      const balanceRes = await client.getWalletBalance({ accountType: 'UNIFIED', coin: 'USDT' });
-      const balance = parseFloat(
-        balanceRes.result?.list?.[0]?.coin?.find((c: any) => c.coin === 'USDT')?.availableToWithdraw || '0'
-      );
-      if (balance <= 0) throw new Error('Insufficient USDT balance');
+      let balanceRes = await client.getWalletBalance({ accountType: 'UNIFIED', coin: 'USDT' }).catch(() => null);
+      
+      // If the user doesn't have a UNIFIED account or it fails, fallback to CONTRACT (Standard Derivatives)
+      if (!balanceRes?.result?.list || balanceRes.result.list.length === 0) {
+        balanceRes = await client.getWalletBalance({ accountType: 'CONTRACT', coin: 'USDT' }).catch(() => null);
+      }
+
+      const usdtData = balanceRes?.result?.list?.[0]?.coin?.find((c: any) => c.coin === 'USDT');
+      const balanceString = usdtData?.walletBalance || usdtData?.equity || usdtData?.availableToWithdraw || '0';
+      const balance = parseFloat(balanceString);
+      
+      if (balance <= 0) {
+         throw new Error(`Insufficient USDT balance (Account Type: ${balanceRes?.result?.list?.[0]?.accountType || 'UNKNOWN'}, Found: ${balanceString})`);
+      }
 
       // ── Step 2: Calculate position size ──
       const sizing = calculatePositionSize({
