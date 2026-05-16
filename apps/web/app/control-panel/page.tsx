@@ -50,7 +50,8 @@ export default function ControlPanelPage() {
   const [sending, setSending] = useState(false);
   const [sentNotifs, setSentNotifs] = useState<any[]>([]);
 
-  const headers = { 'x-admin-token': password };
+  const headers = { 'x-admin-token': password.trim() };
+
 
   const handleAuth = async () => {
     setAuthLoading(true);

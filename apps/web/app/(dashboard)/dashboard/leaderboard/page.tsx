@@ -58,14 +58,22 @@ export default function LeaderboardPage() {
         // Compute metrics
         const leaderboard: LeaderboardEntry[] = [];
         for (const [, val] of channelMap) {
-          const executed = val.trades.filter(t => t.status === 'filled' || t.status === 'closed');
-          const wins = executed.filter(t => (t.pnl || 0) > 0);
-          const totalPnl = executed.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
-          
-          const win_rate = executed.length > 0 ? Math.round((wins.length / executed.length) * 100) : 0;
+          // Count any trade that has reached a terminal state
+          const closed = val.trades.filter(t => {
+            const s = (t.status || t.data?.status || '').toLowerCase();
+            return s === 'tp_hit' || s === 'sl_hit' || s === 'closed' || s === 'filled';
+          });
+          const wins = closed.filter(t => {
+            const s = (t.status || t.data?.status || '').toLowerCase();
+            return s === 'tp_hit' || (s === 'filled' && (t.pnl || t.data?.pnl || 0) > 0);
+          });
+          const totalPnl = closed.reduce((sum: number, t: any) => sum + (t.pnl || t.data?.pnl || 0), 0);
+
+          const win_rate = closed.length > 0 ? Math.round((wins.length / closed.length) * 100) : 0;
           let risk_score: 'Low Risk' | 'Medium Risk' | 'High Risk' = 'High Risk';
           if (win_rate >= 60) risk_score = 'Low Risk';
           else if (win_rate >= 40) risk_score = 'Medium Risk';
+
 
           leaderboard.push({
             channel_name: val.name,

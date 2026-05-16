@@ -169,6 +169,8 @@ export async function handleSignal(
     user_id: userId,
     signal_id: signalDoc.id,
     channel_id: channelDoc.id,
+    channel_name: channelDoc.name || 'Unknown Channel',
+    channel_username: channelDoc.channel_username || '',
     exchange: channelDoc.exchange,
     symbol: parsed.symbol,
     side: parsed.side,
@@ -179,6 +181,7 @@ export async function handleSignal(
     stop_loss: parsed.stop_loss,
     all_tps: tpSelection.allTPs,
     active_tp_index: tpSelection.activeTPIndex,
+    order_id: result.orderId || null,
     status: result.success ? 'filled' : 'error',
     error_msg: result.error || null,
     executed_at: new Date().toISOString(),
@@ -202,6 +205,34 @@ export async function handleSignal(
         take_profit: tpSelection.initialTP,
         stop_loss: parsed.stop_loss ?? undefined,
         exchange: channelDoc.exchange
+      }
+    });
+
+    // Start monitoring this order for TP/SL hits
+    if (result.orderId) {
+      const { startOrderMonitor } = await import('./orderMonitor.js');
+      startOrderMonitor({
+        userId,
+        symbol: parsed.symbol!,
+        orderId: result.orderId,
+        exchange: channelDoc.exchange,
+        side: parsed.side!,
+        entryPrice: result.entryPrice,
+        qty: result.qty,
+        takeProfit: tpSelection.initialTP,
+        stopLoss: parsed.stop_loss ?? undefined,
+        apiKeyDoc: unwrappedKey as any,
+      });
+    }
+  } else {
+    // Notify the user that their trade failed
+    await notify({
+      type: 'TRADE_ERROR',
+      userId,
+      payload: {
+        symbol: parsed.symbol!,
+        exchange: channelDoc.exchange,
+        error: result.error || 'Unknown execution error'
       }
     });
   }

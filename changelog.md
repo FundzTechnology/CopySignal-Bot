@@ -1,4 +1,38 @@
+## [2026-05-16T11:25:00-07:00]
+### Added — Order Status Monitor (TP/SL Hit Detection)
+- **File:** `apps/bot/src/services/orderMonitor.ts` [NEW]
+- **Problem:** After a trade was executed, the bot had no way to detect when Bybit closed the position via Take Profit or Stop Loss. The trade_log stayed permanently in "filled" status, no TP/SL notifications were sent to users via Telegram, and P&L was never recorded.
+- **Fix:** Created `orderMonitor.ts` — a lightweight background polling service that runs a `setInterval` loop every 15 seconds for each new filled order. It calls `getPositionInfo` to check if the position is still open. When the position size drops to 0 (closed), it calls `getClosedPnl` to determine the P&L outcome, updates the `trade_logs` document status to `tp_hit` or `sl_hit`, and fires the appropriate `TP_HIT` or `SL_HIT` notification via `notificationService`. The monitor auto-stops after 72 hours as a safety timeout.
+- **Why:** Without this, users had no feedback on trade outcomes and the dashboard always showed stale "Filled" statuses.
+
+### Fixed — Trade Errors Not Notified to Users via Telegram
+- **File:** `apps/bot/src/services/orchestrator.ts`
+- **Problem:** When a trade execution failed (e.g., insufficient balance, qty error), only the admin received a system error alert. The user whose signal triggered the trade got no notification and had no idea the trade failed.
+- **Fix:** Added an `else` branch to the ALERT block: when `result.success` is `false`, fires `notify({ type: 'TRADE_ERROR', userId, payload: { ... } })` so the user receives a Telegram message explaining the failure.
+
+### Fixed — Leaderboard Showing "Unknown Channel" and Wrong Win Rate
+- **File:** `apps/bot/src/services/orchestrator.ts`
+- **Problem:** The leaderboard displayed "Unknown Channel" for every entry because `trade_logs` documents didn't include `channel_name` or `channel_username` fields. Also `order_id` was not saved, blocking the order monitor from looking up trades by Bybit order ID.
+- **Fix:** Added `channel_name`, `channel_username`, and `order_id` fields to the `db.createDocument("trade_logs", ...)` call in `orchestrator.ts`.
+
+### Fixed — Leaderboard Win Rate Calculated Incorrectly
+- **File:** `apps/web/app/(dashboard)/dashboard/leaderboard/page.tsx`
+- **Problem:** Win-rate only counted `filled` and `closed` statuses, missing `tp_hit` and `sl_hit`. Wins were determined by `pnl > 0` which is always 0 for newly filled trades with no closed P&L recorded yet.
+- **Fix:** Updated the metrics calculation to count `tp_hit`, `sl_hit`, `closed`, and `filled` as terminal states. Wins are now `tp_hit` or `filled` with positive pnl. P&L aggregation handles the `data` wrapper nesting.
+
+### Fixed — Admin Control Panel Password Still Rejected (Fly.io Timing Bug)
+- **Files:** `apps/web/app/api/admin/route.ts`, `apps/web/app/control-panel/page.tsx`
+- **Problem:** On Fly.io, `process.env.ADMIN_PASSWORD` was `undefined` at module load time because Fly.io injects secrets after the Node.js module cache is built. The constant `ADMIN_PASSWORD` was set to the fallback value at startup and never updated when the real secret became available.
+- **Fix (route.ts):** Moved the `ADMIN_PASSWORD` read inside `verifyAdmin()` so it is evaluated fresh on every request. Also added `.replace(/\s/g, '')` to strip all whitespace variants (including Unicode) from both the env value and the incoming header.
+- **Fix (control-panel/page.tsx):** Added `.trim()` to the password value before building the `x-admin-token` header so copy-paste whitespace doesn't cause mismatches.
+
+### Improved — Trade History Page (Status Badges + TP/SL/Channel Columns)
+- **File:** `apps/web/app/(dashboard)/dashboard/trades/page.tsx`
+- **Problem:** The trades page only showed `FILLED`, `PENDING`, `ERROR` statuses. There were no badges for `TP_HIT` or `SL_HIT`. No channel name, no TP/SL prices, no P&L trend icons.
+- **Fix:** Full rewrite with a `STATUS_CONFIG` map that renders coloured badges for all statuses (Filled=blue, TP Hit=green, SL Hit=red, Error=red, Pending=amber). Added: Channel column with Radio icon, TP/SL price column (green/red), P&L column with TrendingUp/Down arrows. Row `title` attribute shows the `error_msg` on hover for failed trades.
+
 ## [2026-05-15T12:45:00-07:00]
+
 ### Fixed — GramJS Ignoring Admin/Outgoing Signals (Critical)
 - **Files:** `apps/bot/src/listener/telegramListener.ts`
 - **Problem:** When the user (who is the channel admin and owner of the GramJS userbot session) posted a trade signal, the bot ignored it. By default, GramJS flags messages sent by the logged-in user as "outgoing" and standard event handlers filter them out if not explicitly configured. Furthermore, channel identifiers (`@username`) weren't strictly matching incoming events due to caching limitations.
