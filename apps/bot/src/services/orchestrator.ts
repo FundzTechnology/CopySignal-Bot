@@ -174,7 +174,7 @@ export async function handleSignal(
     exchange: channelDoc.exchange,
     symbol: parsed.symbol,
     side: parsed.side,
-    order_type: 'Market',
+    order_type: 'Limit',
     qty: result.qty,
     entry_price: result.entryPrice,
     take_profit: tpSelection.initialTP,

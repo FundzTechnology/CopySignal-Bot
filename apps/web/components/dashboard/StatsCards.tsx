@@ -1,13 +1,26 @@
 import { TrendingUp, Activity, Crosshair, BarChart3 } from 'lucide-react';
 
 export default function StatsCards({ trades }: { trades: any[] }) {
-  const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  const filledTrades = trades.filter(t => t.status === 'filled');
-  const wins = filledTrades.filter(t => t.pnl && t.pnl > 0);
-  const winRate = filledTrades.length ? (wins.length / filledTrades.length * 100).toFixed(0) : 0;
-  const todayTrades = trades.filter(t =>
-    new Date(t.executed_at).toDateString() === new Date().toDateString()
+  // Unwrap Cocobase .data nesting
+  const normalised = trades.map((t: any) => {
+    const d = t.data || t;
+    return {
+      status:      (d.status      || t.status      || '').toLowerCase(),
+      pnl:          d.pnl         ?? t.pnl         ?? null,
+      executed_at:  d.executed_at || d.created_at  || t.executed_at || t.created_at || '',
+    };
+  });
+
+  const totalPnl = normalised.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  const closedTrades = normalised.filter(t =>
+    t.status === 'filled' || t.status === 'tp_hit' || t.status === 'sl_hit' || t.status === 'closed'
   );
+  const wins = closedTrades.filter(t => t.status === 'tp_hit' || (t.pnl != null && t.pnl > 0));
+  const winRate = closedTrades.length ? (wins.length / closedTrades.length * 100).toFixed(0) : 0;
+  const todayTrades = normalised.filter(t => {
+    const d = new Date(t.executed_at);
+    return !isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
+  });
 
   const stats = [
     { 
@@ -36,7 +49,7 @@ export default function StatsCards({ trades }: { trades: any[] }) {
     },
     { 
       label: 'Total Trades', 
-      value: filledTrades.length.toString(), 
+      value: closedTrades.length.toString(), 
       color: 'text-foreground',
       icon: BarChart3,
       bgColor: 'bg-zinc-500/10',

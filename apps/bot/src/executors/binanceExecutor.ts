@@ -58,12 +58,14 @@ export async function executeBinance(
 
     const qty = parseFloat(sizing.qty.toFixed(qtyPrecision));
 
-    // ── Step 6: Place market order ──
+    // ── Step 6: Place LIMIT order at signal entry price ──
     const order: any = await client.futuresOrder({
       symbol: signal.symbol!,
       side: signal.side === 'Buy' ? 'BUY' : 'SELL',
-      type: 'MARKET',
+      type: 'LIMIT',
+      price: String(signal.entry!),
       quantity: String(qty),
+      timeInForce: 'GTC',
     });
 
     const closeSide = signal.side === 'Buy' ? 'SELL' : 'BUY';

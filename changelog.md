@@ -1,4 +1,36 @@
+## [2026-05-16T13:02:00-07:00]
+### Fixed — Market Orders Placed Instead of Limit Orders (Critical)
+- **Files:** `apps/bot/src/executors/bybitExecutor.ts`, `apps/bot/src/executors/binanceExecutor.ts`, `apps/bot/src/services/orchestrator.ts`
+- **Problem:** Both Bybit and Binance executors were placing `MARKET` orders, completely ignoring the `entry` price from the signal. This caused fills at whatever the current market price was (e.g., 653.40 instead of 656.0), putting users immediately into loss. `timeInForce: 'IOC'` on Bybit also caused the order to be immediately cancelled if not fillable, which is wrong for a pending limit order.
+- **Fix (bybitExecutor.ts):** Changed `orderType` from `'Market'` to `'Limit'`, added `price: String(signal.entry!)`, changed `timeInForce` from `'IOC'` to `'GTC'` (Good Till Cancelled) so the order stays open at the limit price until filled.
+- **Fix (binanceExecutor.ts):** Changed `type` from `'MARKET'` to `'LIMIT'`, added `price: String(signal.entry!)`, added `timeInForce: 'GTC'`.
+- **Fix (orchestrator.ts):** Updated `order_type` field saved to `trade_logs` from `'Market'` to `'Limit'`.
+
+### Fixed — Live Trade Feed Showing "Invalid Date" and Null Values
+- **File:** `apps/web/components/dashboard/TradeFeed.tsx`
+- **Problem:** Cocobase wraps all document fields inside a `.data` property. The TradeFeed component was reading `trade.executed_at`, `trade.entry_price`, `trade.qty`, `trade.side` directly from the top-level document object, which only contains metadata (id, etc.), not the actual field values. All fields were `undefined`, resulting in "Invalid Date" and null/null displays.
+- **Fix:** Added an `unwrapTrade()` helper that reads every field from `d = raw.data || raw` before accessing it. Added a safe `formatDate()` function that returns `'—'` instead of "Invalid Date" for missing or unparseable timestamps. Also added the fallback fetch-all-and-filter pattern for older documents where filtered queries fail. Added `tp_hit`/`sl_hit` status badges.
+
+### Fixed — Dashboard StatsCards Showing Wrong Counts (0 trades, 0 win rate)
+- **File:** `apps/web/components/dashboard/StatsCards.tsx`
+- **Problem:** StatsCards received trade objects from the dashboard page, but those objects still had fields nested under `.data`. Reading `t.status`, `t.pnl`, `t.executed_at` directly returned `undefined`, so `filledTrades` was always empty and all stats showed 0.
+- **Fix:** Added normalisation step that unwraps `.data` before computing all stats. Also updated `filledTrades` → `closedTrades` to include `tp_hit`, `sl_hit`, and `closed` terminal statuses so the win rate calculation is correct.
+
+### Fixed — Leaderboard "Unknown Channel", 0 Users, Risk Score Present
+- **File:** `apps/web/app/(dashboard)/dashboard/leaderboard/page.tsx`
+- **Problem (Unknown Channel):** The leaderboard tried to read `t.channel_name` from raw Cocobase docs, but the field is nested in `.data`. New trades (after the orchestrator fix) have `channel_name`, but the display name was still falling through to "Unknown Channel" for any trade where the field was missing.
+- **Fix:** Added `.data` unwrapping for all trade fields. Channel display name now falls back gracefully: `channel_name` → `@channel_username` → raw key.
+- **Problem (0 Users):** `user_id` was not being read correctly due to the same `.data` nesting.
+- **Fix:** Properly unwraps `user_id` from the `.data` layer before adding to the `users` Set.
+- **Problem (Risk Score):** Risk Score column was deemed inappropriate and removed per user request.
+- **Fix:** Removed `risk_score` field entirely. Leaderboard now shows only **Win Rate** and **P&L**. The P&L label updates dynamically ("This Week P&L", "This Month P&L", "All Time P&L") to match the selected period.
+
+### Fixed — Admin Control Panel Password (Vercel)
+- **Root Cause (not a code bug):** The web dashboard is hosted on Vercel, not Fly.io. The `ADMIN_PASSWORD` environment variable must be set in the **Vercel project settings** under Environment Variables (not via `flyctl secrets`). The bot engine on Fly.io has the secret correctly, but the Next.js dashboard on Vercel does not.
+- **Action Required:** Go to Vercel Dashboard → copysignal-bot project → Settings → Environment Variables → Add `ADMIN_PASSWORD` = `Fundz,family1` for Production. Then redeploy.
+
 ## [2026-05-16T11:45:00-07:00]
+
 ### Changed — Admin Control Panel Password Updated
 - **File:** `apps/web/app/api/admin/route.ts`
 - **Change:** Updated the hardcoded fallback admin password from `Fundz&family1` to `Fundz,family1` to match the new password set in `.env.local` and Fly.io secrets (`flyctl secrets set ADMIN_PASSWORD=Fundz,family1`).

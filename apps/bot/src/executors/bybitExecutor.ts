@@ -107,18 +107,19 @@ export async function executeBybit(
         if (!e.message?.includes('not modified')) throw e;
       }
 
-      // ── Step 5: Place market order ──
+      // ── Step 5: Place limit order at signal entry price ──
       const orderRes = await client.submitOrder({
         category: 'linear',
         symbol: signal.symbol!,
         side: signal.side as 'Buy' | 'Sell',
-        orderType: 'Market',
+        orderType: 'Limit',
+        price: String(signal.entry!),
         qty: finalQtyStr,
         takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
         stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
         tpTriggerBy: 'LastPrice',
         slTriggerBy: 'LastPrice',
-        timeInForce: 'IOC',
+        timeInForce: 'GTC',
         positionIdx: 0,
       });
 
