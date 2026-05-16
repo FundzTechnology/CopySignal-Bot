@@ -1,4 +1,11 @@
+## [2026-05-16T11:45:00-07:00]
+### Changed — Admin Control Panel Password Updated
+- **File:** `apps/web/app/api/admin/route.ts`
+- **Change:** Updated the hardcoded fallback admin password from `Fundz&family1` to `Fundz,family1` to match the new password set in `.env.local` and Fly.io secrets (`flyctl secrets set ADMIN_PASSWORD=Fundz,family1`).
+- **Why:** The old password contained `&` which caused encoding issues in some environments. The new password uses `,` which is plain ASCII and safe across all transports.
+
 ## [2026-05-16T11:25:00-07:00]
+
 ### Added — Order Status Monitor (TP/SL Hit Detection)
 - **File:** `apps/bot/src/services/orderMonitor.ts` [NEW]
 - **Problem:** After a trade was executed, the bot had no way to detect when Bybit closed the position via Take Profit or Stop Loss. The trade_log stayed permanently in "filled" status, no TP/SL notifications were sent to users via Telegram, and P&L was never recorded.

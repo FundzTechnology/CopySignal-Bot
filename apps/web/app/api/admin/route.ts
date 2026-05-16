@@ -8,7 +8,7 @@ import { db } from '@/lib/cocobase';
 
 function verifyAdmin(req: NextRequest): boolean {
   // Read fresh on every request — Fly.io injects secrets after module load
-  const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || 'Fundz&family1').trim().replace(/\s/g, '');
+  const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || 'Fundz,family1').trim().replace(/\s/g, '');
   const authHeader = (req.headers.get('x-admin-token') || '').trim().replace(/\s/g, '');
 
   if (!authHeader) {
