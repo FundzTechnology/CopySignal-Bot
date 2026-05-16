@@ -104,7 +104,7 @@ export async function handleSignal(
       filters: { user_id: userId, exchange: channelDoc.exchange }
     });
     if (apiKeys.length > 0) apiKeyDoc = apiKeys[0];
-  } catch {}
+  } catch { }
 
   // Fallback: fetch all and filter in code
   if (!apiKeyDoc) {
@@ -113,17 +113,17 @@ export async function handleSignal(
       apiKeyDoc = allKeys.find((k: any) => {
         const d = k.data || k;
         return (d.user_id || k.user_id) === userId &&
-               (d.exchange || k.exchange) === channelDoc.exchange;
+          (d.exchange || k.exchange) === channelDoc.exchange;
       });
-      
+
       if (!apiKeyDoc) {
-         console.log(`[Orchestrator DB Debug] Database has ${allKeys.length} total keys.`);
-         allKeys.forEach((k: any) => {
-           const d = k.data || k;
-           console.log(`[Orchestrator DB Debug] Found key for user: ${d.user_id || k.user_id}, Exchange: ${d.exchange || k.exchange}`);
-         });
+        console.log(`[Orchestrator DB Debug] Database has ${allKeys.length} total keys.`);
+        allKeys.forEach((k: any) => {
+          const d = k.data || k;
+          console.log(`[Orchestrator DB Debug] Found key for user: ${d.user_id || k.user_id}, Exchange: ${d.exchange || k.exchange}`);
+        });
       }
-    } catch {}
+    } catch { }
   }
 
   if (!apiKeyDoc) {
@@ -141,7 +141,7 @@ export async function handleSignal(
 
   // ── EXECUTION ───────────────────────────────────────────────
   const multiTpPercent = user.data?.multi_tp_partial || 0;
-  
+
   let result;
   try {
     console.log(`[Orchestrator] 🚀 Executing ${parsed.symbol} ${parsed.side} on ${channelDoc.exchange} (demo=${unwrappedKey.demo_mode})`);
@@ -174,7 +174,7 @@ export async function handleSignal(
     exchange: channelDoc.exchange,
     symbol: parsed.symbol,
     side: parsed.side,
-    order_type: 'Limit',
+    order_type: parsed.useMarketPrice ? 'Market' : 'Limit',
     qty: result.qty,
     entry_price: result.entryPrice,
     take_profit: tpSelection.initialTP,

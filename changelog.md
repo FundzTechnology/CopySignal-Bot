@@ -1,3 +1,21 @@
+## [2026-05-16T06:55:00-07:00]
+### Fixed — Margin Limit Raised to 99%
+- **File:** `apps/bot/src/utils/riskCalc.ts`
+- **Problem:** Trades were failing with "trade would use excessive margin" because the safety cap was hardcoded at 80%.
+- **Fix:** Raised `marginPercent` threshold to `99%` to allow near-maximum capital utilization as requested. Any margin usage strictly below 99% is now permitted.
+
+### Feature — Dynamic "Market Price" Entry Execution
+- **Files:** `apps/bot/src/parser/signalParser.ts`, `apps/bot/src/executors/bybitExecutor.ts`, `apps/bot/src/executors/binanceExecutor.ts`, `apps/bot/src/services/orchestrator.ts`
+- **Problem:** When signal providers used words like "market", "current price", or "CMP" instead of a numeric entry price, the parser would fail to find an entry, causing the signal to be skipped or fail position sizing calculation.
+- **Fix (Parser):** Added regex to detect market keywords (`MARKET PRICE`, `CURRENT PRICE`, `NOW`, `CMP`). Sets a new flag `useMarketPrice = true` and allows the signal to pass validation even with a null entry.
+- **Fix (Executors):** Both Bybit and Binance executors check `signal.useMarketPrice`. If true, they immediately fetch the live asset price (`getTickers` or `futuresMarkPrice`), assign it to `signal.entry` to calculate correct position sizing, and then dynamically execute a `MARKET` order instead of a `LIMIT` order.
+- **Fix (Orchestrator):** `order_type` logged to database is now dynamically set to `Market` or `Limit` based on the trade executed.
+
+### Fixed — Leverage Cap Removal for True Position Sizing
+- **File:** `apps/bot/src/parser/signalParser.ts`
+- **Problem:** Leverage was being hardcapped to `50x` in the parser (`Math.min(result.leverage, 50)`). This caused the bot to use 50x even if the user sent a signal for 100x, leading to wildly different Risk/Reward (ROI) and TP/SL calculations compared to manually placed trades using the exact signal leverage.
+- **Fix:** Removed the `50x` cap. The parser now uses the exact leverage provided in the signal, ensuring that estimated P&L, TP, SL, and ROI match 1-to-1 with manual exchange execution.
+
 ## [2026-05-16T13:02:00-07:00]
 ### Fixed — Market Orders Placed Instead of Limit Orders (Critical)
 - **Files:** `apps/bot/src/executors/bybitExecutor.ts`, `apps/bot/src/executors/binanceExecutor.ts`, `apps/bot/src/services/orchestrator.ts`

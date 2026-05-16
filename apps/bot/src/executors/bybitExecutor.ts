@@ -61,6 +61,14 @@ export async function executeBybit(
          throw new Error(`Insufficient USDT balance (Account Type: ${balanceRes?.result?.list?.[0]?.accountType || 'UNKNOWN'}, Found: ${balanceString})`);
       }
 
+      // ── Step 1.5: If useMarketPrice is true, fetch current market price ──
+      if (signal.useMarketPrice || !signal.entry) {
+        const tickerRes = await client.getTickers({ category: 'linear', symbol: signal.symbol! });
+        const lastPrice = parseFloat(tickerRes.result?.list?.[0]?.lastPrice || '0');
+        if (lastPrice <= 0) throw new Error(`Could not fetch current market price for ${signal.symbol}`);
+        signal.entry = lastPrice;
+      }
+
       // ── Step 2: Calculate raw position size ──
       const sizing = calculatePositionSize({
         accountBalance: balance,
@@ -107,19 +115,20 @@ export async function executeBybit(
         if (!e.message?.includes('not modified')) throw e;
       }
 
-      // ── Step 5: Place limit order at signal entry price ──
+      // ── Step 5: Place order (Limit or Market) ──
+      const orderType = signal.useMarketPrice ? 'Market' : 'Limit';
       const orderRes = await client.submitOrder({
         category: 'linear',
         symbol: signal.symbol!,
         side: signal.side as 'Buy' | 'Sell',
-        orderType: 'Limit',
-        price: String(signal.entry!),
+        orderType: orderType,
+        price: orderType === 'Limit' ? String(signal.entry!) : undefined,
         qty: finalQtyStr,
         takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
         stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
         tpTriggerBy: 'LastPrice',
         slTriggerBy: 'LastPrice',
-        timeInForce: 'GTC',
+        timeInForce: orderType === 'Limit' ? 'GTC' : 'IOC',
         positionIdx: 0,
       });
 

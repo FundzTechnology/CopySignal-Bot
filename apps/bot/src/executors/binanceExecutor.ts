@@ -38,6 +38,14 @@ export async function executeBinance(
     const balance = parseFloat(usdtBal?.availableBalance || '0');
     if (balance <= 0) throw new Error('Insufficient USDT balance');
 
+    // ── Step 3.5: If useMarketPrice is true, fetch current market price ──
+    if (signal.useMarketPrice || !signal.entry) {
+      const ticker = await client.futuresMarkPrice({ symbol: signal.symbol! });
+      const lastPrice = parseFloat(ticker.markPrice || '0');
+      if (lastPrice <= 0) throw new Error(`Could not fetch market price for ${signal.symbol}`);
+      signal.entry = lastPrice;
+    }
+
     // ── Step 4: Get symbol precision ──
     const info = await client.futuresExchangeInfo();
     const symbolInfo = info.symbols.find((s: any) => s.symbol === signal.symbol);
@@ -58,15 +66,20 @@ export async function executeBinance(
 
     const qty = parseFloat(sizing.qty.toFixed(qtyPrecision));
 
-    // ── Step 6: Place LIMIT order at signal entry price ──
-    const order: any = await client.futuresOrder({
+    // ── Step 6: Place order (LIMIT or MARKET) ──
+    const orderType = signal.useMarketPrice ? 'MARKET' : 'LIMIT';
+    const orderOptions: any = {
       symbol: signal.symbol!,
       side: signal.side === 'Buy' ? 'BUY' : 'SELL',
-      type: 'LIMIT',
-      price: String(signal.entry!),
+      type: orderType,
       quantity: String(qty),
-      timeInForce: 'GTC',
-    });
+    };
+    if (orderType === 'LIMIT') {
+      orderOptions.price = String(signal.entry!);
+      orderOptions.timeInForce = 'GTC';
+    }
+
+    const order: any = await client.futuresOrder(orderOptions);
 
     const closeSide = signal.side === 'Buy' ? 'SELL' : 'BUY';
 
