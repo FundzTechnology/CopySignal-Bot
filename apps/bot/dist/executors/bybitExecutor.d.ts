@@ -3,6 +3,7 @@ export interface ApiKeyDoc {
     api_key: string;
     api_secret: string;
     testnet: boolean;
+    demo_mode?: boolean;
 }
 export interface ExecutionResult {
     success: boolean;

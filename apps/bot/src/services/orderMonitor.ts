@@ -66,7 +66,7 @@ export function startOrderMonitor(params: MonitorParams): void {
         console.log(`[OrderMonitor] ✅ ${symbol} position closed — determining outcome...`);
 
         // Look at recent closed PnL
-        const pnlRes = await client.getClosedPnl({ category: 'linear', symbol, limit: 5 }).catch(() => null);
+        const pnlRes = await client.getClosedPnL({ category: 'linear', symbol, limit: 5 }).catch(() => null);
         const lastClose = pnlRes?.result?.list?.[0];
         const pnl = parseFloat(lastClose?.closedPnl || '0');
 

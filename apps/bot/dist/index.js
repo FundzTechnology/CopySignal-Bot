@@ -61,26 +61,69 @@ async function boot() {
     });
     console.log(`📡 Loading ${channels.length} active channels...`);
     for (const channel of channels) {
-        const chanId = channel.telegram_channel_id || channel.channel_username;
+        // Cocobase wraps fields inside .data — unwrap for consistent access
+        const ch = channel.data || channel;
+        const chanId = ch.telegram_channel_id ||
+            ch.telegram_id ||
+            ch.channel_username ||
+            channel.telegram_channel_id ||
+            channel.telegram_id ||
+            channel.channel_username;
+        if (!chanId) {
+            console.warn(`⚠️ Channel "${ch.name || channel.name || 'unknown'}" has no telegram ID — skipping`);
+            continue;
+        }
+        // Build a normalized channel doc with all fields the orchestrator needs
+        const channelDoc = {
+            id: channel.id || channel._id,
+            user_id: ch.user_id || channel.user_id,
+            name: ch.name || channel.name,
+            exchange: ch.exchange || channel.exchange || 'bybit',
+            risk_percent: ch.risk_percent || channel.risk_percent || 1,
+            trigger_keyword: ch.trigger_keyword || channel.trigger_keyword || '',
+            allow_medium_confidence: ch.allow_medium_confidence ?? channel.allow_medium_confidence ?? true,
+            buffer_window_seconds: ch.buffer_window_seconds || channel.buffer_window_seconds,
+            is_active: true,
+        };
+        console.log(`  📡 Subscribing to: ${chanId} (${channelDoc.name}) [${channelDoc.exchange}]`);
         telegramListener.addChannel(chanId, (message, messageId) => {
-            handleSignal(message, messageId, channel);
-        }, channel.buffer_window_seconds);
+            handleSignal(message, messageId, channelDoc);
+        }, channelDoc.buffer_window_seconds);
     }
     // Watch for new channels being added or removed in real time
     const channelWatcher = db.realtime.collection('channels');
     channelWatcher.connect();
     channelWatcher.onCreate((event) => {
-        if (event.data?.is_active) {
-            console.log(`🆕 New channel added: ${event.data.channel_name}`);
-            telegramListener.addChannel(event.data.telegram_channel_id || event.data.channel_username, (message, messageId) => {
-                handleSignal(message, messageId, event.data);
-            }, event.data.buffer_window_seconds);
+        const ch = event.data || event;
+        if (ch.is_active) {
+            const chanId = ch.telegram_channel_id || ch.telegram_id || ch.channel_username;
+            if (!chanId)
+                return;
+            console.log(`🆕 New channel added: ${ch.name || ch.channel_name}`);
+            const channelDoc = {
+                id: event.id || event._id,
+                user_id: ch.user_id,
+                name: ch.name || ch.channel_name,
+                exchange: ch.exchange || 'bybit',
+                risk_percent: ch.risk_percent || 1,
+                trigger_keyword: ch.trigger_keyword || '',
+                allow_medium_confidence: ch.allow_medium_confidence ?? true,
+                buffer_window_seconds: ch.buffer_window_seconds,
+                is_active: true,
+            };
+            telegramListener.addChannel(chanId, (message, messageId) => {
+                handleSignal(message, messageId, channelDoc);
+            }, channelDoc.buffer_window_seconds);
         }
     });
     channelWatcher.onUpdate((event) => {
-        if (!event.data?.is_active) {
-            console.log(`🔇 Channel deactivated: ${event.data.channel_name}`);
-            telegramListener.removeChannel(event.data.telegram_channel_id || event.data.channel_username);
+        const ch = event.data || event;
+        if (!ch.is_active) {
+            const chanId = ch.telegram_channel_id || ch.telegram_id || ch.channel_username;
+            if (chanId) {
+                console.log(`🔇 Channel deactivated: ${ch.name || ch.channel_name}`);
+                telegramListener.removeChannel(chanId);
+            }
         }
     });
     // ── Payment Watchers ─────────────────────────────────────────

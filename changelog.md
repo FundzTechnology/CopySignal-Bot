@@ -1,3 +1,21 @@
+## [2026-05-22T15:45:00-07:00]
+### Updated — Cocobase SDK Version
+- **Files:** `apps/web/package.json`, `apps/bot/package.json`, `apps/bot/src/db/cocobase.ts`, `apps/bot/src/scripts/wipeApiKeys.ts`, `apps/bot/src/services/orderMonitor.ts`
+- **Change:** Upgraded `cocobase` from `^1.5.4` to `^1.6.0` to match their new API docs URL.
+- **Implementation:** 
+  - Ran `npm install` in both `apps/bot` and `apps/web`.
+  - Refactored imports in `apps/bot/src/db/cocobase.ts` and `wipeApiKeys.ts` from default export (`import cocobase from "cocobase"`) to named export (`import { Cocobase } from "cocobase"`) to fix TypeScript errors under version 1.6.0.
+  - Removed redundant test scripts (`testImport.ts`, `testImport2.ts`).
+  - Fixed a typo in `apps/bot/src/services/orderMonitor.ts` where `getClosedPnl` was used instead of `getClosedPnL` which caused the build to fail.
+  - Deployed the bot engine to Fly.io via `flyctl deploy`.
+- **Why:** The Cocobase documentation URL and SDK were updated to a new version (v1.6.0), requiring the project dependency versions and their imports to be aligned.
+
+## [2026-05-19T10:23:00-07:00]
+### Added — Favicon Icons
+- **File:** `apps/web/app/layout.tsx`
+- **Change:** Added favicon images and icons configuration to the Next.js `metadata` object. Linked `/favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `icon.svg`, and `apple-touch-icon.png` from the `public` directory.
+- **Why:** The user added new favicon images to the `public` folder and requested they be integrated into the site to ensure correct icons are displayed on browser tabs, bookmarks, and mobile home screens.
+
 ## [2026-05-16T06:55:00-07:00]
 ### Fixed — Margin Limit Raised to 99%
 - **File:** `apps/bot/src/utils/riskCalc.ts`

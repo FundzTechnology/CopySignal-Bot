@@ -2,22 +2,44 @@ import { RestClientV5 } from 'bybit-api';
 import { decrypt } from '../utils/crypto.js';
 import { calculatePositionSize, isSafeToTrade } from '../utils/riskCalc.js';
 export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercent = 0) {
+    // Determine base URL: Demo uses api-demo.bybit.com, Testnet uses testnet, else live
+    const baseUrl = apiKeyDoc.demo_mode
+        ? 'https://api-demo.bybit.com'
+        : apiKeyDoc.testnet
+            ? undefined // bybit-api handles testnet URL automatically
+            : undefined; // default live URL
     const client = new RestClientV5({
         key: decrypt(apiKeyDoc.api_key),
         secret: decrypt(apiKeyDoc.api_secret),
-        testnet: apiKeyDoc.testnet,
-        syncTime: true, // Forces time synchronization to prevent ECONNRESET
+        testnet: apiKeyDoc.testnet && !apiKeyDoc.demo_mode,
+        syncTime: true,
+        ...(baseUrl ? { baseUrl } : {}),
     });
     const MAX_RETRIES = 3;
     let attempt = 0;
     while (attempt < MAX_RETRIES) {
         try {
             // ── Step 1: Get account balance ──
-            const balanceRes = await client.getWalletBalance({ accountType: 'UNIFIED', coin: 'USDT' });
-            const balance = parseFloat(balanceRes.result?.list?.[0]?.coin?.find((c) => c.coin === 'USDT')?.availableToWithdraw || '0');
-            if (balance <= 0)
-                throw new Error('Insufficient USDT balance');
-            // ── Step 2: Calculate position size ──
+            let balanceRes = await client.getWalletBalance({ accountType: 'UNIFIED', coin: 'USDT' }).catch(() => null);
+            // If the user doesn't have a UNIFIED account or it fails, fallback to CONTRACT (Standard Derivatives)
+            if (!balanceRes?.result?.list || balanceRes.result.list.length === 0) {
+                balanceRes = await client.getWalletBalance({ accountType: 'CONTRACT', coin: 'USDT' }).catch(() => null);
+            }
+            const usdtData = balanceRes?.result?.list?.[0]?.coin?.find((c) => c.coin === 'USDT');
+            const balanceString = usdtData?.walletBalance || usdtData?.equity || usdtData?.availableToWithdraw || '0';
+            const balance = parseFloat(balanceString);
+            if (balance <= 0) {
+                throw new Error(`Insufficient USDT balance (Account Type: ${balanceRes?.result?.list?.[0]?.accountType || 'UNKNOWN'}, Found: ${balanceString})`);
+            }
+            // ── Step 1.5: If useMarketPrice is true, fetch current market price ──
+            if (signal.useMarketPrice || !signal.entry) {
+                const tickerRes = await client.getTickers({ category: 'linear', symbol: signal.symbol });
+                const lastPrice = parseFloat(tickerRes.result?.list?.[0]?.lastPrice || '0');
+                if (lastPrice <= 0)
+                    throw new Error(`Could not fetch current market price for ${signal.symbol}`);
+                signal.entry = lastPrice;
+            }
+            // ── Step 2: Calculate raw position size ──
             const sizing = calculatePositionSize({
                 accountBalance: balance,
                 riskPercent,
@@ -28,7 +50,24 @@ export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercen
             if (!isSafeToTrade(sizing, balance)) {
                 throw new Error(`Trade would use excessive margin: ${(sizing.margin / balance * 100).toFixed(1)}%`);
             }
-            // ── Step 3: Set leverage ──
+            // ── Step 3: Fetch Instrument Info for exact Qty formatting ──
+            const instrumentRes = await client.getInstrumentsInfo({
+                category: 'linear',
+                symbol: signal.symbol
+            });
+            const instrumentInfo = instrumentRes.result?.list?.[0];
+            const qtyStepStr = instrumentInfo?.lotSizeFilter?.qtyStep || '0.1';
+            const minQtyStr = instrumentInfo?.lotSizeFilter?.minOrderQty || '0.1';
+            // Round raw qty down to the nearest allowed step size
+            const qtyStep = parseFloat(qtyStepStr);
+            let roundedQty = Math.floor(sizing.qty / qtyStep) * qtyStep;
+            // Ensure we meet the minimum required quantity
+            if (roundedQty < parseFloat(minQtyStr))
+                roundedQty = parseFloat(minQtyStr);
+            // Format to the correct decimal places to satisfy Bybit API constraints
+            const qtyDecimals = qtyStepStr.includes('.') ? qtyStepStr.split('.')[1].length : 0;
+            const finalQtyStr = roundedQty.toFixed(qtyDecimals);
+            // ── Step 4: Set leverage ──
             try {
                 await client.setLeverage({
                     category: 'linear',
@@ -39,22 +78,23 @@ export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercen
             }
             catch (e) {
                 // Ignore "leverage not modified" error, throw others
-                if (!e.message?.includes('not modified')) {
+                if (!e.message?.includes('not modified'))
                     throw e;
-                }
             }
-            // ── Step 4: Place market order ──
+            // ── Step 5: Place order (Limit or Market) ──
+            const orderType = signal.useMarketPrice ? 'Market' : 'Limit';
             const orderRes = await client.submitOrder({
                 category: 'linear',
                 symbol: signal.symbol,
                 side: signal.side,
-                orderType: 'Market',
-                qty: String(sizing.qty),
+                orderType: orderType,
+                price: orderType === 'Limit' ? String(signal.entry) : undefined,
+                qty: finalQtyStr,
                 takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
                 stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
                 tpTriggerBy: 'LastPrice',
                 slTriggerBy: 'LastPrice',
-                timeInForce: 'IOC',
+                timeInForce: orderType === 'Limit' ? 'GTC' : 'IOC',
                 positionIdx: 0,
             });
             if (orderRes.retCode !== 0) {

@@ -1,4 +1,4 @@
-[visit cocobase.buzz](https://docs.cocobase.buzz/)
+[visit cocobase.cc](https://docs.cocobase.cc/)
 
 Getting Started
 Welcome To Cocobase
@@ -175,7 +175,7 @@ Success Stories
 ​
 Getting Started
 Ready to build something amazing? Here’s how to get started:
-Visit cocobase.buzz
+Visit cocobase.cc
 Sign up for a free account
 Create your first project
 Install the SDK: npm install cocobase
@@ -195,7 +195,7 @@ Community - Join our developer community
 Community & Support
 Discord: Join our community for real-time help
 Twitter: @CocobaseHQ for updates
-Email: hello@cocobase.buzz for direct support
+Email: hello@cocobase.cc for direct support
 Issues: Report bugs on GitHub
 ​
 Built With Love
@@ -1317,10 +1317,10 @@ Special Data Types
 File References
 Store file URLs or references to uploaded files:
 {
-  "profilePicture": "https://storage.cocobase.buzz/files/avatar.jpg",
+  "profilePicture": "https://storage.cocobase.cc/files/avatar.jpg",
   "documents": [
-    "https://storage.cocobase.buzz/files/resume.pdf",
-    "https://storage.cocobase.buzz/files/portfolio.pdf"
+    "https://storage.cocobase.cc/files/resume.pdf",
+    "https://storage.cocobase.cc/files/portfolio.pdf"
   ]
 }
 See File Storage for details.
@@ -3116,8 +3116,8 @@ Response Structure:
     "name": "John Doe",
     "email": "john@example.com",
     "bio": "Software developer",
-    "avatar": "https://storage.cocobase.buzz/.../avatar.jpg",
-    "cover_photo": "https://storage.cocobase.buzz/.../cover.jpg"
+    "avatar": "https://storage.cocobase.cc/.../avatar.jpg",
+    "cover_photo": "https://storage.cocobase.cc/.../cover.jpg"
   }
 }
 ​
@@ -3151,11 +3151,11 @@ Response:
     "name": "Laptop",
     "price": 1299,
     "description": "High-performance laptop",
-    "main_image": "https://storage.cocobase.buzz/.../main.jpg",
+    "main_image": "https://storage.cocobase.cc/.../main.jpg",
     "gallery": [
-      "https://storage.cocobase.buzz/.../img1.jpg",
-      "https://storage.cocobase.buzz/.../img2.jpg",
-      "https://storage.cocobase.buzz/.../img3.jpg"
+      "https://storage.cocobase.cc/.../img1.jpg",
+      "https://storage.cocobase.cc/.../img2.jpg",
+      "https://storage.cocobase.cc/.../img3.jpg"
     ]
   }
 }
@@ -3217,7 +3217,7 @@ Response:
   "username": "johndoe",
   "full_name": "John Doe",
   "bio": "Developer",
-  "avatar": "https://storage.cocobase.buzz/.../avatar.jpg",
+  "avatar": "https://storage.cocobase.cc/.../avatar.jpg",
   "createdAt": "2024-01-15T10:00:00Z"
 }
 ​
@@ -3635,13 +3635,13 @@ def main():
 ​
 Execution URL
 Each cloud function gets a unique execution URL:
-https://api.cocobase.buzz/functions/{function_id}/execute
+https://api.cocobase.cc/functions/{function_id}/execute
 Call it with GET or POST requests:
 # GET request with query parameters
-curl "https://api.cocobase.buzz/functions/abc123/execute?name=John&age=25"
+curl "https://api.cocobase.cc/functions/abc123/execute?name=John&age=25"
 
 # POST request with JSON body
-curl -X POST https://api.cocobase.buzz/functions/abc123/execute \
+curl -X POST https://api.cocobase.cc/functions/abc123/execute \
   -H "Content-Type: application/json" \
   -d '{"name": "John", "age": 25}'
 ​
@@ -5527,15 +5527,15 @@ Function Execution
 ​
 Execution URL
 When you create a cloud function, you get an execution URL:
-https://api.cocobase.buzz/functions/{function_id}/execute
+https://api.cocobase.cc/functions/{function_id}/execute
 ​
 HTTP Methods
 GET Request:
 # Query parameters in URL
-curl "https://api.cocobase.buzz/functions/abc123/execute?name=John&age=25"
+curl "https://api.cocobase.cc/functions/abc123/execute?name=John&age=25"
 POST Request:
 # JSON payload in body
-curl -X POST https://api.cocobase.buzz/functions/abc123/execute \
+curl -X POST https://api.cocobase.cc/functions/abc123/execute \
   -H "Content-Type: application/json" \
   -d '{"name": "John", "age": 25}'
 ​

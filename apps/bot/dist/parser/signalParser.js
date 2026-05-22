@@ -19,17 +19,34 @@ export function parseSignal(rawText) {
         side: null,
         entry: null,
         entryHigh: null,
+        useMarketPrice: false,
         take_profits: [],
         stop_loss: null,
         leverage: 10, // sensible default
         raw: rawText
     };
     // ─── 1. SYMBOL DETECTION ─────────────────────────────────
+    // Match "ETHUSDT" (no slash)
     const usdtMatch = text.match(/\b([A-Z]{2,8})USDT\b/);
     if (usdtMatch) {
         result.symbol = usdtMatch[1] + 'USDT';
     }
-    else {
+    // Match "ETH/USDT" or "ETH/USDT:USDT" (with slash — common in formatted signals)
+    if (!result.symbol) {
+        const slashMatch = text.match(/\b([A-Z]{2,8})\/USDT(?::USDT)?\b/);
+        if (slashMatch) {
+            result.symbol = slashMatch[1] + 'USDT';
+        }
+    }
+    // Match "ETH USDT" (with space)
+    if (!result.symbol) {
+        const spaceMatch = text.match(/\b([A-Z]{2,8})\s+USDT\b/);
+        if (spaceMatch) {
+            result.symbol = spaceMatch[1] + 'USDT';
+        }
+    }
+    // Fallback: match known symbols from the PATTERNS list
+    if (!result.symbol) {
         for (const sym of PATTERNS.symbols) {
             if (new RegExp(`\\b${sym}\\b`).test(text)) {
                 result.symbol = sym + 'USDT';
@@ -42,20 +59,28 @@ export function parseSignal(rawText) {
         result.side = 'Buy';
     else if (PATTERNS.short.test(text))
         result.side = 'Sell';
-    // ─── 3. ENTRY PRICE ──────────────────────────────────────
-    for (const pattern of PATTERNS.entry) {
-        const match = text.match(pattern);
-        if (match) {
-            if (match[2]) {
-                const low = cleanNumber(match[1]);
-                const high = cleanNumber(match[2]);
-                result.entry = parseFloat(((low + high) / 2).toFixed(2));
-                result.entryHigh = high;
+    // ─── 3. ENTRY PRICE ─────────────────────────────────────────────────
+    // Detect "market price" / "current price" / "now" as entry keywords
+    const MARKET_ENTRY_PATTERN = /(?:ENTRY|PRICE)\s*:?\s*(?:MARKET\s*PRICE|MARKET|CURRENT\s*PRICE|CURRENT\s*MARKET\s*PRICE|NOW|MP|CMP)/i;
+    if (MARKET_ENTRY_PATTERN.test(rawText)) {
+        result.useMarketPrice = true;
+        // entry stays null — executor will use market order
+    }
+    else {
+        for (const pattern of PATTERNS.entry) {
+            const match = text.match(pattern);
+            if (match) {
+                if (match[2]) {
+                    const low = cleanNumber(match[1]);
+                    const high = cleanNumber(match[2]);
+                    result.entry = parseFloat(((low + high) / 2).toFixed(2));
+                    result.entryHigh = high;
+                }
+                else {
+                    result.entry = cleanNumber(match[1]);
+                }
+                break;
             }
-            else {
-                result.entry = cleanNumber(match[1]);
-            }
-            break;
         }
     }
     // ─── 4. TAKE PROFITS ─────────────────────────────────────
@@ -93,8 +118,8 @@ export function parseSignal(rawText) {
     // ─── 6. LEVERAGE ─────────────────────────────────────────
     const levMatch = text.match(PATTERNS.leverage);
     if (levMatch) {
+        // Use the exact leverage specified — no cap
         result.leverage = parseInt(levMatch[1] || levMatch[2]);
-        result.leverage = Math.min(result.leverage, 50);
     }
     return result;
 }
@@ -105,8 +130,9 @@ export function scoreSignal(parsed, channelRules) {
         return 0; // No symbol = definitely not a signal
     if (!parsed.side)
         return 0; // No direction = cannot trade
-    if (!parsed.entry)
-        return 0; // No entry = cannot size position
+    // Entry is optional when useMarketPrice is true
+    if (!parsed.entry && !parsed.useMarketPrice)
+        return 0;
     if (!parsed.stop_loss)
         return 0; // No stop loss = cannot trade safely
     score += 3; // Base score for having all mandatory fields

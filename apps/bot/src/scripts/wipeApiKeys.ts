@@ -7,8 +7,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import cocobase from 'cocobase';
-const { Cocobase } = cocobase;
+import { Cocobase } from 'cocobase';
 
 const db = new Cocobase({
   apiKey: process.env.COCOBASE_API_KEY!,

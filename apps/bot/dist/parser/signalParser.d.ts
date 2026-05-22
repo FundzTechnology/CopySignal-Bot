@@ -3,6 +3,7 @@ export interface ParsedSignal {
     side: 'Buy' | 'Sell' | null;
     entry: number | null;
     entryHigh: number | null;
+    useMarketPrice: boolean;
     take_profits: number[];
     stop_loss: number | null;
     leverage: number;
