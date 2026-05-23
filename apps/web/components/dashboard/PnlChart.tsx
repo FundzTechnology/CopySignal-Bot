@@ -19,13 +19,22 @@ export default function PnlChart({ trades }: { trades: any[] }) {
 
     const dailyPnl: Record<string, number> = {};
     
-    // Sort trades oldest to newest for cumulative
-    const sortedTrades = [...trades].sort((a, b) => new Date(a.executed_at).getTime() - new Date(b.executed_at).getTime());
+    // Filter for current month and sort oldest to newest
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const monthlyTrades = [...trades]
+      .filter(trade => {
+        const d = new Date(trade.executed_at);
+        return !isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .sort((a, b) => new Date(a.executed_at).getTime() - new Date(b.executed_at).getTime());
     
     let cumulativePnl = 0;
 
-    sortedTrades.forEach(trade => {
-      if (trade.status === 'filled' && trade.pnl !== null) {
+    monthlyTrades.forEach(trade => {
+      if (['tp_hit', 'sl_hit', 'closed'].includes(trade.status) && trade.pnl !== null) {
         cumulativePnl += trade.pnl;
         const dateKey = new Date(trade.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         dailyPnl[dateKey] = cumulativePnl;
@@ -40,7 +49,7 @@ export default function PnlChart({ trades }: { trades: any[] }) {
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-      <h3 className="text-foreground font-semibold mb-6">Cumulative P&L</h3>
+      <h3 className="text-foreground font-semibold mb-6">Monthly Cumulative P&L</h3>
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>

@@ -11,20 +11,29 @@ export default function StatsCards({ trades }: { trades: any[] }) {
     };
   });
 
-  const totalPnl = normalised.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
-  const closedTrades = normalised.filter(t =>
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const monthlyTrades = normalised.filter(t => {
+    const d = new Date(t.executed_at);
+    return !isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const totalPnl = monthlyTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  const closedTrades = monthlyTrades.filter(t =>
     t.status === 'filled' || t.status === 'tp_hit' || t.status === 'sl_hit' || t.status === 'closed'
   );
   const wins = closedTrades.filter(t => t.status === 'tp_hit' || (t.pnl != null && t.pnl > 0));
   const winRate = closedTrades.length ? (wins.length / closedTrades.length * 100).toFixed(0) : 0;
-  const todayTrades = normalised.filter(t => {
+  const todayTrades = monthlyTrades.filter(t => {
     const d = new Date(t.executed_at);
-    return !isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
+    return !isNaN(d.getTime()) && d.toDateString() === now.toDateString();
   });
 
   const stats = [
     { 
-      label: 'Total P&L', 
+      label: 'Monthly P&L', 
       value: `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`, 
       color: totalPnl >= 0 ? 'text-success' : 'text-destructive',
       icon: TrendingUp,
@@ -48,7 +57,7 @@ export default function StatsCards({ trades }: { trades: any[] }) {
       iconColor: 'text-blue-500'
     },
     { 
-      label: 'Total Trades', 
+      label: 'Monthly Trades', 
       value: closedTrades.length.toString(), 
       color: 'text-foreground',
       icon: BarChart3,

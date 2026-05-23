@@ -222,6 +222,8 @@ export async function handleSignal(
         takeProfit: tpSelection.initialTP,
         stopLoss: parsed.stop_loss ?? undefined,
         apiKeyDoc: unwrappedKey as any,
+        isMarketOrder: !!parsed.useMarketPrice,  // Skip Phase 1 for market fills
+        channelName: channelDoc.name || channelDoc.channel_username || 'Unknown Channel',
       });
     }
   } else {

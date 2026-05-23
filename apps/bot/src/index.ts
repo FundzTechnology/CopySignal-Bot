@@ -96,6 +96,7 @@ async function boot() {
       id: (channel as any).id || (channel as any)._id,
       user_id: ch.user_id || (channel as any).user_id,
       name: ch.name || (channel as any).name,
+      channel_username: ch.channel_username || (channel as any).channel_username || '',
       exchange: ch.exchange || (channel as any).exchange || 'bybit',
       risk_percent: ch.risk_percent || (channel as any).risk_percent || 1,
       trigger_keyword: ch.trigger_keyword || (channel as any).trigger_keyword || '',
@@ -130,6 +131,7 @@ async function boot() {
         id: event.id || event._id,
         user_id: ch.user_id,
         name: ch.name || ch.channel_name,
+        channel_username: ch.channel_username || '',
         exchange: ch.exchange || 'bybit',
         risk_percent: ch.risk_percent || 1,
         trigger_keyword: ch.trigger_keyword || '',
@@ -176,6 +178,83 @@ async function boot() {
   cron.schedule('0 * * * *', () => {
     cleanExpiredPaymentSessions().catch(console.error);
   });
+
+  // ── Boot-time Monitor Recovery ────────────────────────────────
+  // If the bot crashed or was redeployed while trades were open,
+  // any 'filled' trade log that has no 'closed_at' is "orphaned" — no monitor
+  // is watching it. Re-start a monitor for each such trade.
+  try {
+    const { startOrderMonitor } = await import('./services/orderMonitor.js');
+    const allTradeLogs = await db.listDocuments('trade_logs', {}) as any[];
+    const orphanedTrades = allTradeLogs.filter((t: any) => {
+      const d = t.data || t;
+      const status  = d.status  || t.status;
+      const closedAt = d.closed_at || t.closed_at;
+      const orderId  = d.order_id  || t.order_id;
+      const exchange = d.exchange  || t.exchange;
+      return status === 'filled' && !closedAt && orderId && exchange === 'bybit';
+    });
+
+    if (orphanedTrades.length > 0) {
+      console.log(`🔁 Recovering monitors for ${orphanedTrades.length} orphaned open trade(s)...`);
+
+      for (const tradeRaw of orphanedTrades) {
+        const t = tradeRaw.data || tradeRaw;
+        const userId   = t.user_id   || tradeRaw.user_id;
+        const symbol   = t.symbol    || tradeRaw.symbol;
+        const orderId  = t.order_id  || tradeRaw.order_id;
+        const exchange = t.exchange  || tradeRaw.exchange || 'bybit';
+
+        if (!userId || !symbol || !orderId) continue;
+
+        // Fetch the API key for this user + exchange
+        let apiKeyDoc: any = null;
+        try {
+          const keys = await db.listDocuments('api_keys', {
+            filters: { user_id: userId, exchange }
+          }) as any[];
+          if (keys.length > 0) {
+            apiKeyDoc = keys[0].data || keys[0];
+          } else {
+            // Fallback: fetch all and filter
+            const allKeys = await db.listDocuments('api_keys', {}) as any[];
+            const found = allKeys.find((k: any) => {
+              const d = k.data || k;
+              return (d.user_id || k.user_id) === userId &&
+                     (d.exchange || k.exchange) === exchange;
+            });
+            if (found) apiKeyDoc = found.data || found;
+          }
+        } catch { /* skip if key lookup fails */ }
+
+        if (!apiKeyDoc) {
+          console.warn(`  ⚠️ No API key found for orphaned trade ${orderId} (${symbol}) — skipping recovery`);
+          continue;
+        }
+
+        console.log(`  🔁 Resuming monitor for ${symbol} (orderId: ${orderId})`);
+        startOrderMonitor({
+          userId,
+          symbol,
+          orderId,
+          exchange,
+          side:          t.side        || tradeRaw.side        || 'Buy',
+          entryPrice:   t.entry_price || tradeRaw.entry_price || 0,
+          qty:          t.qty         || tradeRaw.qty         || 0,
+          takeProfit:   t.take_profit || tradeRaw.take_profit,
+          stopLoss:     t.stop_loss   || tradeRaw.stop_loss,
+          channelName:  t.channel_name || tradeRaw.channel_name || 'Unknown Channel',
+          // On recovery, the order is already filled (that's why status==='filled'), so skip Phase 1
+          isMarketOrder: true,
+          apiKeyDoc,
+        });
+      }
+    } else {
+      console.log('✅ No orphaned open trades found.');
+    }
+  } catch (recoveryErr: any) {
+    console.warn('⚠️ Boot-time monitor recovery failed (non-fatal):', recoveryErr.message || recoveryErr);
+  }
 
   console.log('✅ Bot is fully running. Waiting for signals...');
 }

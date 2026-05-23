@@ -23,11 +23,41 @@ interface TradePayload {
   exchange: string;
 }
 
+interface TPHitPayload {
+  symbol: string;
+  side: string;
+  entryPrice: number;
+  qty: number;
+  tpLevel: number;
+  pnl: number;
+  channelName?: string;
+}
+
+interface SLHitPayload {
+  symbol: string;
+  side: string;
+  entryPrice: number;
+  qty: number;
+  loss: number;
+  stopLoss?: number;
+  channelName?: string;
+}
+
+interface TradeClosedPayload {
+  symbol: string;
+  side: string;
+  entryPrice: number;
+  qty: number;
+  pnl: number;
+  channelName?: string;
+}
+
 export type NotificationEvent =
   | { type: 'TRADE_OPENED'; userId: string; payload: TradePayload }
   | { type: 'TRADE_ERROR'; userId: string; payload: { symbol: string; exchange: string; error: string } }
-  | { type: 'TP_HIT'; userId: string; payload: { symbol: string; tpLevel: number; pnl: number } }
-  | { type: 'SL_HIT'; userId: string; payload: { symbol: string; loss: number } }
+  | { type: 'TP_HIT'; userId: string; payload: TPHitPayload }
+  | { type: 'SL_HIT'; userId: string; payload: SLHitPayload }
+  | { type: 'TRADE_CLOSED'; userId: string; payload: TradeClosedPayload }
   | { type: 'PAYMENT_CONFIRMED'; userId: string; payload: { plan: string; chain: string } }
   | { type: 'SYSTEM_ERROR'; payload: { context: string; error: string } };
 
@@ -74,22 +104,55 @@ Your subscription is now active. Happy trading! 🚀
 _CopySignal Bot_`.trim();
 }
 
-function formatTPHit(p: { symbol: string; tpLevel: number; pnl: number }): string {
+function formatTPHit(p: TPHitPayload): string {
+  const directionEmoji = (p.side === 'Buy' || p.side === 'Long') ? '🟢' : '🔴';
+  const pnlStr = `+$${Math.abs(p.pnl).toFixed(2)}`;
   return `
-🎯 *Take Profit ${p.tpLevel} Hit!*
+🎯 *Take Profit ${p.tpLevel} Hit!* ${directionEmoji}
 ━━━━━━━━━━━━━━━━━
 *Symbol:* \`${p.symbol}\`
-*P&L:* +$${p.pnl.toFixed(2)} ✅
+*Side:* ${p.side.toUpperCase()}
+*Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
+*Qty:* \`${p.qty}\`
+*Realised P&L:* \`${pnlStr}\` ✅
+${p.channelName ? `*Channel:* ${p.channelName}` : ''}
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
 }
 
-function formatSLHit(p: { symbol: string; loss: number }): string {
+function formatSLHit(p: SLHitPayload): string {
+  const directionEmoji = (p.side === 'Buy' || p.side === 'Long') ? '🟢' : '🔴';
+  const lossStr = `-$${Math.abs(p.loss).toFixed(2)}`;
   return `
-🛑 *Stop Loss Hit*
+🛑 *Stop Loss Hit* ${directionEmoji}
 ━━━━━━━━━━━━━━━━━
 *Symbol:* \`${p.symbol}\`
-*Loss:* -$${Math.abs(p.loss).toFixed(2)}
+*Side:* ${p.side.toUpperCase()}
+*Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
+*Qty:* \`${p.qty}\`
+${p.stopLoss ? `*SL Level:* \`$${p.stopLoss.toLocaleString()}\`` : ''}
+*Realised P&L:* \`${lossStr}\` ❌
+${p.channelName ? `*Channel:* ${p.channelName}` : ''}
+━━━━━━━━━━━━━━━━━
+_CopySignal Bot_`.trim();
+}
+
+function formatTradeClosed(p: TradeClosedPayload): string {
+  const pnlStr = p.pnl > 0
+    ? `+$${p.pnl.toFixed(2)} ✅`
+    : p.pnl < 0
+      ? `-$${Math.abs(p.pnl).toFixed(2)} ❌`
+      : `$0.00 (Break-even)`;
+  return `
+📊 *Trade Closed*
+━━━━━━━━━━━━━━━━━
+*Symbol:* \`${p.symbol}\`
+*Side:* ${p.side.toUpperCase()}
+*Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
+*Qty:* \`${p.qty}\`
+*Realised P&L:* \`${pnlStr}\`
+*Closed:* Manually / Break-even
+${p.channelName ? `*Channel:* ${p.channelName}` : ''}
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
 }
@@ -116,12 +179,33 @@ async function getUserTelegramChatId(userId: string): Promise<string | null> {
     // not found in auth
   }
 
-  // Check 2: 'users' collection (where the Telegram bot stores link data)
+  // Check 2: 'users' collection — filtered query
   try {
     const docs = await db.listDocuments('users', { filters: { user_id: userId } }) as any[];
     if (docs.length > 0) {
       const doc = docs[0];
-      return doc.telegram_user_id || doc.data?.telegram_user_id || null;
+      const chatId = doc.telegram_user_id || doc.data?.telegram_user_id || null;
+      if (chatId) return chatId;
+    }
+  } catch {
+    // collection doesn't exist or filter failed
+  }
+
+  // Check 3: Fallback — fetch ALL users and filter in code (handles Cocobase .data nesting)
+  // This is the same pattern used throughout the codebase to work around Cocobase filter limitations.
+  try {
+    const allUsers = await db.listDocuments('users', {}) as any[];
+    const match = allUsers.find((u: any) => {
+      const d = u.data || u;
+      return (d.user_id || u.user_id) === userId;
+    });
+    if (match) {
+      const d = match.data || match;
+      const chatId = d.telegram_user_id || match.telegram_user_id || null;
+      if (chatId) {
+        console.log(`[Notify] Found Telegram chat ID for user ${userId} via fetch-all fallback.`);
+        return chatId;
+      }
     }
   } catch {
     // collection doesn't exist
@@ -166,6 +250,9 @@ export async function notify(event: NotificationEvent): Promise<void> {
         break;
       case 'SL_HIT':
         message = formatSLHit(event.payload);
+        break;
+      case 'TRADE_CLOSED':
+        message = formatTradeClosed(event.payload);
         break;
       case 'PAYMENT_CONFIRMED':
         message = formatPaymentConfirmed(event.payload);

@@ -1,3 +1,31 @@
+## [2026-05-22T17:41:35-07:00]
+### Fixed — Dashboard Cumulative P&L Chart and Stats (Monthly)
+- **Files Modified:** `apps/web/components/dashboard/PnlChart.tsx`, `apps/web/components/dashboard/StatsCards.tsx`
+- **Problem:** The Cumulative P&L chart on the dashboard was completely empty/broken for closed trades. The chart was explicitly filtering for `trade.status === 'filled'`, but due to the recent monitoring fixes, finished trades correctly transition to `tp_hit`, `sl_hit`, or `closed`. Thus, completed trades with actual P&L were being excluded from the chart calculation.
+- **Change:**
+  - **PnlChart.tsx:** Updated the P&L inclusion condition from `trade.status === 'filled'` to `['tp_hit', 'sl_hit', 'closed'].includes(trade.status)`.
+  - **Monthly Filter:** Added a date filter to both `PnlChart.tsx` and `StatsCards.tsx` to only include trades from the *current month* and *current year*, matching the user's request for a Monthly dashboard view.
+  - **UI Labels:** Changed the titles from "Cumulative P&L" to "Monthly Cumulative P&L" on the chart, and updated the stat cards to display "Monthly P&L" and "Monthly Trades" instead of "Total P&L" and "Total Trades".
+- **Why:** To accurately reflect closed trade profits and losses in the dashboard chart, and to scope the dashboard's analytics to the current month as requested.
+
+## [2026-05-22T17:20:00-07:00]
+### Fixed — TP/SL Detection, Trade Closure Notifications & Monitoring Pipeline (Critical)
+- **Files Modified:** `apps/bot/src/services/orderMonitor.ts`, `apps/bot/src/services/notificationService.ts`, `apps/bot/src/services/orchestrator.ts`, `apps/bot/src/index.ts`
+- **Problem:** After a trade was executed and the "Trade Executed ✅" Telegram message was sent, the bot never sent any follow-up notification for when the trade was closed (TP hit, SL hit, or manually closed). The `trade_logs` records stayed permanently at `status: 'filled'`, the dashboard P&L stayed at $0, and the leaderboard win rate never updated.
+- **Root Causes Identified & Fixed:**
+  1. **Bug (CRITICAL) — False "Already Closed" Detection in Phase 2 of `orderMonitor.ts`:** The position monitor started polling `getPositionInfo` immediately after Phase 1 confirmed a fill. Bybit's backend takes a moment to propagate a newly-filled position. Polling too fast meant the monitor saw `posSize === 0` (position not yet populated), concluded the trade was already closed, called `getClosedPnL` and found no relevant entry, stored wrong/zero P&L, and exited — all within the first few seconds. Fixed by adding a mandatory **30-second initial wait** at the start of Phase 2 before the first position check.
+  2. **Bug (CRITICAL) — `getClosedPnL` Matching Wrong Trade:** The PnL matching used only `orderId` (the entry order ID) to look up the closed trade. But Bybit stores the **close** order's ID in that field. If no match was found, the code fell back to `closedList[0]` — the most recent closed PnL entry — which could be from a completely different prior trade. Fixed by passing `startTime: monitorStartTime` to `getClosedPnL` so only entries from AFTER the monitor started are returned, correctly scoping the fallback to the current trade.
+  3. **Bug (HIGH) — Phase 1 Ran for Market Orders:** Market orders are filled in milliseconds. The `waitForOrderFill` loop slept 10 seconds before its first check. Added `isMarketOrder` flag to `MonitorParams`. When `true`, Phase 1 (wait-for-fill) is skipped entirely, jumping straight to Phase 2 with the 30-second propagation delay. Fixed in `orchestrator.ts` by passing `isMarketOrder: !!parsed.useMarketPrice`.
+  4. **Bug (HIGH) — Phase 1 Slept Before First Check:** The original loop slept 10 seconds before checking order status. For fast-moving markets where a limit order fills within seconds, this was unnecessary delay. Fixed by checking `getHistoricOrders` first (before any sleep) on each iteration.
+  5. **Bug (MEDIUM) — No Side Filtering in Position Check:** `getPositionInfo` returned all positions for a symbol. Added side-aware filtering to match the correct long/short position.
+  6. **Bug (DEFENSIVE) — `getUserTelegramChatId` Missing Fallback:** Added fetch-all-and-filter fallback in `notificationService.ts` (same pattern used in `telegramService.ts` and `orchestrator.ts`) as a defensive measure against Cocobase `.data` nesting edge cases.
+- **Additional Improvements:**
+  - Enriched `TP_HIT`, `SL_HIT`, and `TRADE_CLOSED` Telegram message formatters to include entry price, side, qty, and channel name so users have full trade context in each alert.
+  - Updated `MonitorParams` interface with `isMarketOrder?: boolean` and `channelName?: string` fields.
+  - Updated boot-time orphaned trade recovery in `index.ts` to pass `isMarketOrder: true` (orphaned trades are already filled by definition, so Phase 1 is irrelevant on recovery) and `channelName` for richer notifications.
+- **Why:** These bugs collectively broke the entire trade monitoring pipeline. Trades were placed correctly but monitoring exited before the position was properly established, causing permanent `"filled"` status, zero P&L, and no closure Telegram alerts.
+- **Verified:** TypeScript compile (`npx tsc --noEmit`) passes with zero errors. Deployed to Fly.io.
+
 ## [2026-05-22T15:45:00-07:00]
 ### Updated — Cocobase SDK Version
 - **Files:** `apps/web/package.json`, `apps/bot/package.json`, `apps/bot/src/db/cocobase.ts`, `apps/bot/src/scripts/wipeApiKeys.ts`, `apps/bot/src/services/orderMonitor.ts`
