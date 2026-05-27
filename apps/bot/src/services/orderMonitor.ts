@@ -17,6 +17,7 @@ export interface MonitorParams {
   apiKeyDoc: ApiKeyDoc;
   isMarketOrder?: boolean; // If true, skip Phase 1 (order is already filled at market price)
   channelName?: string;    // For richer Telegram notifications
+  firstTarget?: number;    // Used to move SL to Entry when crossed
 }
 
 /**
@@ -127,7 +128,7 @@ async function monitorOpenPosition(
   client: RestClientV5,
   params: MonitorParams,
 ): Promise<void> {
-  const { userId, symbol, orderId, side, takeProfit, stopLoss, entryPrice, qty, channelName } = params;
+  const { userId, symbol, orderId, side, takeProfit, stopLoss, entryPrice, qty, channelName, firstTarget } = params;
   const MAX_DURATION_MS     = 72 * 60 * 60 * 1000;  // 72 hours
   const MIN_INITIAL_WAIT_MS = 30_000;                // 30 seconds — let Bybit propagate position
   const POLL_MS             = 15_000;                // 15 seconds between polls
@@ -143,6 +144,8 @@ async function monitorOpenPosition(
   // Buy = Long (index 1 in hedge mode, 0 in one-way). We use 0 for one-way (default).
   // We still filter by side string just in case list has multiple entries.
   const sideLower = side.toLowerCase();
+  
+  let slMovedToEntry = false;
 
   while (Date.now() - monitorStartTime < MAX_DURATION_MS) {
     try {
@@ -174,6 +177,32 @@ async function monitorOpenPosition(
       if (posSize > 0) {
         // Position still open — log and continue
         console.log(`[OrderMonitor] 📊 ${symbol} ${side} position open — size: ${posSize}, unrealised PnL: ${unrealisedPnl}`);
+
+        // Break-even logic: If current price crossed firstTarget, move SL to entry
+        if (firstTarget && !slMovedToEntry) {
+          const tickerRes = await client.getTickers({ category: 'linear', symbol }).catch(() => null);
+          const currentPrice = parseFloat(tickerRes?.result?.list?.[0]?.lastPrice || '0');
+          if (currentPrice > 0) {
+            const crossed = sideLower === 'buy' || sideLower === 'long'
+              ? currentPrice >= firstTarget
+              : currentPrice <= firstTarget;
+            
+            if (crossed) {
+              console.log(`[OrderMonitor] 🎯 ${symbol} crossed Target 1 (${firstTarget}). Moving SL to Entry (${entryPrice}).`);
+              await client.setTradingStop({
+                category: 'linear',
+                symbol,
+                stopLoss: String(entryPrice),
+                slTriggerBy: 'LastPrice',
+                positionIdx: 0,
+              }).catch(err => {
+                console.warn(`[OrderMonitor] Failed to move SL for ${symbol}:`, err.message || err);
+              });
+              slMovedToEntry = true;
+            }
+          }
+        }
+
         await sleep(POLL_MS);
         continue;
       }
@@ -216,26 +245,34 @@ async function monitorOpenPosition(
       }
 
       const pnl = matchedClose ? parseFloat(matchedClose.closedPnl || '0') : 0;
+      const execType = matchedClose ? matchedClose.execType : 'Unknown';
 
-      console.log(`[OrderMonitor] 💰 Closed PnL for ${symbol}: ${pnl} (matched: ${!!matchedClose})`);
+      console.log(`[OrderMonitor] 💰 Closed PnL for ${symbol}: ${pnl} (matched: ${!!matchedClose}, execType: ${execType})`);
 
       // ── Determine outcome ──
-      // pnl > 0 = TP hit (profitable close)
-      // pnl < 0 = SL hit (loss close)
-      // pnl === 0 = closed at break-even or manually
-      let outcome: 'tp_hit' | 'sl_hit' | 'closed';
-      if (pnl > 0) {
+      let outcome: 'tp_hit' | 'sl_hit' | 'closed' | 'manual_close';
+      if (execType === 'TakeProfit' || execType === 'PartialTakeProfit') {
         outcome = 'tp_hit';
-      } else if (pnl < 0) {
-        outcome = 'sl_hit';
+      } else if (execType === 'StopLoss') {
+        // If slMovedToEntry is true, this is a break-even hit (will be recorded as closed/sl_hit with ~0 PNL).
+        outcome = slMovedToEntry && Math.abs(pnl) < Math.abs(entryPrice * qty * 0.005) ? 'closed' : 'sl_hit';
+      } else if (execType === 'Trade') {
+        outcome = 'manual_close';
       } else {
-        outcome = 'closed';
+        // Fallback to PNL based detection
+        if (pnl > 0) {
+          outcome = 'tp_hit';
+        } else if (pnl < 0) {
+          outcome = 'sl_hit';
+        } else {
+          outcome = 'closed';
+        }
       }
 
       console.log(`[OrderMonitor] 🏁 Outcome: ${outcome}, PnL: ${pnl}`);
 
       // ── Update DB trade log ──
-      await updateTradeLog(orderId, outcome, pnl);
+      await updateTradeLog(orderId, outcome === 'manual_close' ? 'closed' : outcome, pnl);
 
       // ── Send Telegram alert ──
       await sendClosedNotification({
@@ -300,7 +337,7 @@ interface ClosedNotificationParams {
   side: string;
   entryPrice: number;
   qty: number;
-  outcome: 'tp_hit' | 'sl_hit' | 'closed';
+  outcome: 'tp_hit' | 'sl_hit' | 'closed' | 'manual_close';
   pnl: number;
   takeProfit?: number;
   stopLoss?: number;
@@ -342,8 +379,21 @@ async function sendClosedNotification(params: ClosedNotificationParams): Promise
           channelName,
         },
       });
+    } else if (outcome === 'manual_close') {
+      await notify({
+        type: 'MANUAL_CLOSE',
+        userId,
+        payload: {
+          symbol,
+          side,
+          entryPrice,
+          qty,
+          pnl,
+          channelName,
+        },
+      });
     } else {
-      // Manually closed or break-even — send a generic TRADE_CLOSED notification
+      // Break-even
       await notify({
         type: 'TRADE_CLOSED',
         userId,

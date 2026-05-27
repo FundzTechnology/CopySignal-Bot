@@ -1,3 +1,42 @@
+## [2026-05-26T20:47:08-07:00]
+### Fixed — flyctl Not Recognized / Fly.io Deployment Broken
+- **Problem:** Running `flyctl deploy` (or `fly deploy`) from `apps/bot` failed with `CommandNotFoundException` — the shell could not find `flyctl` anywhere on `PATH`. Investigating `C:\Users\SIR KOJO\.fly\bin\` revealed that a previous auto-update had **corrupted the installation**: only `flyctl.exe.old` and `flyctl.zip` existed in the folder — the actual `flyctl.exe` binary was missing entirely.
+- **Root Cause:** Fly.io's self-updater had downloaded a new version (`flyctl.zip`) and renamed the old binary to `flyctl.exe.old`, but had not finished extracting the new one. This left the `bin` directory with no valid executable, breaking all `flyctl` commands globally on this machine.
+- **Fix:** Ran the official Fly.io PowerShell installer script to reinstall `flyctl` fresh:
+  ```
+  iwr https://fly.io/install.ps1 -useb | iex
+  ```
+  This successfully placed a new `flyctl.exe` into `C:\Users\SIR KOJO\.fly\bin\flyctl.exe`.
+- **Deployment:** Since the terminal session was not restarted (so PATH hadn't refreshed), ran deploy using the full binary path:
+  ```
+  & "C:\Users\SIR KOJO\.fly\bin\flyctl.exe" deploy
+  ```
+  The deployment completed successfully:
+  - App config validated (`fly.toml` ✓)
+  - Docker image built (145 MB) and pushed to `registry.fly.io/copysignal-bot-engine`
+  - Machine `178121e6fd6748` updated and reached `started` state
+  - DNS verified at `https://copysignal-bot-engine.fly.dev/`
+- **All latest bot changes are now live on Fly.io** (signal parser fixes, dynamic TP/SL logic, break-even SL, manual close detection, billing price updates).
+- **Note for future deploys:** `flyctl` is now installed. After restarting your terminal, `flyctl deploy` from `apps/bot` will work directly without needing the full path.
+
+## [2026-05-26T20:29:32-07:00]
+### Fixed — Signal Parser, TP/SL Auto-Adjust, & Billing Price Update
+- **Files Modified:** `apps/bot/src/parser/patterns.ts`, `apps/bot/src/parser/signalParser.ts`, `apps/bot/src/executors/bybitExecutor.ts`, `apps/bot/src/services/orderMonitor.ts`, `apps/bot/src/services/notificationService.ts`, `apps/bot/src/services/orchestrator.ts`, `apps/web/app/(dashboard)/dashboard/billing/page.tsx`
+- **Problem:**
+  1. The signal parser ignored TP/SL labels like "TP" and "SL", forcing the use of "Target" and "Stop". It also ignored low-priced targets (like ETH `2.088` or IOTA `0.0562`) due to a hardcoded `val >= 10` hack, and couldn't process multiple entry zones formatted as numbered lists.
+  2. The Bybit executor always set Take Profit to TP1 instead of properly allocating based on the total number of targets (e.g. Target 2 for 3-4 targets).
+  3. The bot did not automatically adjust the Stop Loss to Break-even (entry price) once TP1 was hit.
+  4. Manually closed trades were incorrectly reported as "Break-even" in Telegram notifications.
+  5. The Billing page displayed outdated pricing ($29/$79) and featured a Referral Program that needed to be removed.
+- **Fix:**
+  - **Signal Parser (`patterns.ts`, `signalParser.ts`):** Added robust regex to match variations like "TP", "SL", and multiple entries (e.g. `1) 0.0562 2) 0.0573`). Removed the `val >= 10` filter, replacing it with a smarter string-based filter to prevent confusing list indices (like "1)") with prices.
+  - **Dynamic TP selection (`bybitExecutor.ts`):** Now dynamically assigns the Take Profit field using the `Math.floor((targets.length - 1) / 2)` formula, ensuring 3-4 targets use TP2, 5-6 use TP3, etc.
+  - **Auto Break-even (`orderMonitor.ts`, `orchestrator.ts`):** Added logic in the Phase 2 monitor loop to fetch live `getTickers` price. If the current price crosses Target 1 (`firstTarget`), Bybit `setTradingStop` is called to automatically move the Stop Loss to the original Entry Price.
+  - **Manual Close Detection (`orderMonitor.ts`, `notificationService.ts`):** The monitor now reads Bybit's `execType`. If it's `Trade`, it fires a new `MANUAL_CLOSE` notification type. If it's `StopLoss` but `slMovedToEntry` is true, it registers as `closed` (Break-even).
+  - **Billing & UI (`billing/page.tsx`):** Updated Starter price to $10.5 and Pro price to $25.5. Completely removed the Referral Program component.
+  - **User Management (`makePro.ts`):** Executed a script via Cocobase SDK to set `emmafund1984@gmail.com` as a lifetime Pro user (`plan: pro`, expires `2099`).
+- **Why:** To improve trade parsing reliability, accurately enforce the user's risk-management strategy (Target 2 TP + Auto Break-even at Target 1), give precise Telegram notifications for manual interventions, and update the business model pricing.
+
 ## [2026-05-22T17:41:35-07:00]
 ### Fixed — Dashboard Cumulative P&L Chart and Stats (Monthly)
 - **Files Modified:** `apps/web/components/dashboard/PnlChart.tsx`, `apps/web/components/dashboard/StatsCards.tsx`

@@ -58,6 +58,7 @@ export type NotificationEvent =
   | { type: 'TP_HIT'; userId: string; payload: TPHitPayload }
   | { type: 'SL_HIT'; userId: string; payload: SLHitPayload }
   | { type: 'TRADE_CLOSED'; userId: string; payload: TradeClosedPayload }
+  | { type: 'MANUAL_CLOSE'; userId: string; payload: TradeClosedPayload }
   | { type: 'PAYMENT_CONFIRMED'; userId: string; payload: { plan: string; chain: string } }
   | { type: 'SYSTEM_ERROR'; payload: { context: string; error: string } };
 
@@ -151,7 +152,27 @@ function formatTradeClosed(p: TradeClosedPayload): string {
 *Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
 *Qty:* \`${p.qty}\`
 *Realised P&L:* \`${pnlStr}\`
-*Closed:* Manually / Break-even
+*Closed:* Break-even
+${p.channelName ? `*Channel:* ${p.channelName}` : ''}
+━━━━━━━━━━━━━━━━━
+_CopySignal Bot_`.trim();
+}
+
+function formatManualClose(p: TradeClosedPayload): string {
+  const pnlStr = p.pnl > 0
+    ? `+$${p.pnl.toFixed(2)} ✅`
+    : p.pnl < 0
+      ? `-$${Math.abs(p.pnl).toFixed(2)} ❌`
+      : `$0.00`;
+  return `
+📊 *Trade Manually Closed*
+━━━━━━━━━━━━━━━━━
+*Symbol:* \`${p.symbol}\`
+*Side:* ${p.side.toUpperCase()}
+*Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
+*Qty:* \`${p.qty}\`
+*Realised P&L:* \`${pnlStr}\`
+*Closed:* Manually
 ${p.channelName ? `*Channel:* ${p.channelName}` : ''}
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
@@ -253,6 +274,9 @@ export async function notify(event: NotificationEvent): Promise<void> {
         break;
       case 'TRADE_CLOSED':
         message = formatTradeClosed(event.payload);
+        break;
+      case 'MANUAL_CLOSE':
+        message = formatManualClose(event.payload);
         break;
       case 'PAYMENT_CONFIRMED':
         message = formatPaymentConfirmed(event.payload);

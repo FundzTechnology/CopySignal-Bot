@@ -18,8 +18,8 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$29 / mo',
-    amount: 29,
+    price: '$10.5 / mo',
+    amount: 10,
     channels: '1 channel',
     exchanges: '1 exchange',
     trades: '5 / day',
@@ -28,8 +28,8 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '$79 / mo',
-    amount: 79,
+    price: '$25.5 / mo',
+    amount: 25,
     channels: 'Unlimited',
     exchanges: 'Both',
     trades: 'Unlimited',
@@ -402,27 +402,6 @@ export default function BillingPage() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Referral Program */}
-      <div className="pt-8 border-t border-border mt-12">
-        <h2 className="text-xl font-bold text-foreground mb-4">Referral Program</h2>
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <p className="text-muted-foreground text-sm mb-4">
-            Share your referral link with your community. You earn 20% of their subscription fees for life.
-          </p>
-          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3 border border-border">
-            <code className="text-primary text-sm flex-1 break-all font-mono">
-              {typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${user?.id}` : ''}
-            </code>
-            <button
-              onClick={() => copy(`${window.location.origin}/register?ref=${user?.id}`, 'referral')}
-              className="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary text-xs px-3 py-1.5 rounded-lg transition font-medium"
-            >
-              {copied === 'referral' ? '✓ Copied' : 'Copy'}
-            </button>
-          </div>
-        </div>
       </div>
 
     </div>

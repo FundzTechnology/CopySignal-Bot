@@ -220,6 +220,7 @@ export async function handleSignal(
         entryPrice: result.entryPrice,
         qty: result.qty,
         takeProfit: tpSelection.initialTP,
+        firstTarget: parsed.take_profits.length ? parsed.take_profits[0] : undefined,
         stopLoss: parsed.stop_loss ?? undefined,
         apiKeyDoc: unwrappedKey as any,
         isMarketOrder: !!parsed.useMarketPrice,  // Skip Phase 1 for market fills

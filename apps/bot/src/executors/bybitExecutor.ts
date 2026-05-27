@@ -117,6 +117,16 @@ export async function executeBybit(
 
       // ── Step 5: Place order (Limit or Market) ──
       const orderType = signal.useMarketPrice ? 'Market' : 'Limit';
+
+      // Determine which Take Profit target to set in Bybit
+      // Default to TP1 (index 0). If >= 3 targets, use the dynamic formula:
+      // 3-4 targets -> TP2 (index 1), 5-6 targets -> TP3 (index 2), 7-8 targets -> TP4 (index 3)
+      let tpIndex = 0;
+      if (signal.take_profits.length >= 3) {
+        tpIndex = Math.floor((signal.take_profits.length - 1) / 2);
+      }
+      const takeProfitPrice = signal.take_profits.length ? String(signal.take_profits[tpIndex]) : undefined;
+
       const orderRes = await client.submitOrder({
         category: 'linear',
         symbol: signal.symbol!,
@@ -124,7 +134,7 @@ export async function executeBybit(
         orderType: orderType,
         price: orderType === 'Limit' ? String(signal.entry!) : undefined,
         qty: finalQtyStr,
-        takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
+        takeProfit: takeProfitPrice,
         stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
         tpTriggerBy: 'LastPrice',
         slTriggerBy: 'LastPrice',

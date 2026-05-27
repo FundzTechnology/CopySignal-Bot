@@ -17,6 +17,7 @@ export const PATTERNS = {
   // Note: [kK] suffix is optionally captured so cleanNumber() can expand "99k" → 99000
   entry: [
     /ENTRY\s*(?:ZONE\s*)?[:\-]?\s*\$?([\d,]+\.?\d*[kK]?)\s*[-–]\s*\$?([\d,]+\.?\d*[kK]?)/i, // range
+    /ENTRY\s*(?:ZONE\s*)?[:\-]?\s*(?:1\)|\[1\]|\d\.)\s*\$?([\d,]+\.?\d*[kK]?)\s+(?:2\)|\[2\]|\d\.)\s*\$?([\d,]+\.?\d*[kK]?)/i, // numbered list
     /ENTRY\s*[:\-]?\s*\$?([\d,]+\.?\d*[kK]?)/i,
     /ENTER\s*(?:AT\s*)?[:\-]?\s*\$?([\d,]+\.?\d*[kK]?)/i,
     /PRICE\s*[:\-]?\s*\$?([\d,]+\.?\d*[kK]?)/i,
@@ -36,8 +37,8 @@ export const PATTERNS = {
     /T\/P\d?\s*[:\-]?\s*\$?([\d,]+\.?\d*[kK]?)/gi,
   ],
 
-  // Target list pattern (e.g., "Targets: 98000 / 100000 / 105000" or "target 99k")
-  targetList: /TARGETS?\s*[:\-]?\s*([\d,\s\/\|\.\-kK]+)/i,
+  // Target list pattern (e.g., "Targets: 98000 / 100000 / 105000" or "Targets:\n1) 99k\n2) 100k")
+  targetList: /TARGETS?\s*[:\-]?\s*([\d,\s\/\|\.\-kK\(\)\[\]T]+)/i,
 
   // Stop loss patterns — capture optional K/k suffix
   stopLoss: [
@@ -49,5 +50,5 @@ export const PATTERNS = {
   ],
 
   // Leverage patterns — matches "x20", "20x", "×10", "LEVERAGE: 10"
-  leverage: /(?:X|x|×|LEVERAGE[:\s]+)(\d+)(?:X|x|×)?|(\d+)(?:X|x|×)/,
+  leverage: /(?:X|x|×|LEVERAGE(?:[:\s]+|[\s\-]+))(\d+)(?:X|x|×)?|(\d+)(?:X|x|×)/i,
 };
