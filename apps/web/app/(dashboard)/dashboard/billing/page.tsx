@@ -262,6 +262,17 @@ export default function BillingPage() {
           </p>
         </div>
 
+        {/* Network Fee Warning */}
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="text-orange-300 font-bold mb-1">Important: Account for Network Fees</p>
+            <p className="text-orange-200/80 leading-relaxed">
+              Always add an extra <strong className="text-orange-400">0.5 USDC</strong> to your transfer. Exchanges deduct withdrawal fees from your sent amount. To activate your plan, the exact final amount arriving in your wallet must be at least <strong>${selectedPlanAmount}</strong>.
+            </p>
+          </div>
+        </div>
+
         {!paymentSession ? (
           <button 
             onClick={generateSession}

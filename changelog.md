@@ -1,3 +1,7 @@
+## [2026-05-26T22:04:00-07:00]
+### Added — Network Fee Warning on Billing Page
+- **Billing UI Update:** Added a prominent warning block to the `BillingPage` (`apps/web/app/(dashboard)/dashboard/billing/page.tsx`) instructing users to add an extra **0.5 USDC** to their transfer. This ensures that the final amount arriving in the generated wallet perfectly matches or exceeds the required threshold ($10 for Starter, $25 for Pro) despite exchange withdrawal fees.
+
 ## [2026-05-26T21:51:00-07:00]
 ### Fixed & Improved — SUI Watcher, Landing Page Pricing, Subscription System, and Trade Notifications
 - **SUI Watcher Deploy:** The local code for the SUI watcher was correct but the Fly.io container was stale, throwing warnings for `SUI_WALLET_ADDRESS` not set. We triggered a new deployment to Fly.io so the bot uses `SUI_MASTER_WALLET` correctly.
