@@ -1,3 +1,12 @@
+## [2026-05-27T22:18:00-07:00]
+### Fixed & Improved — Stop Loss Break-even False Reporting & Reply-to-Close Commands
+- **Fixed (Stop Loss Break-even):** `apps/bot/src/services/orderMonitor.ts` now uses a retry loop (polling up to 4 times with 5-second delays) when fetching `client.getClosedPnL`. This gives Bybit's backend time to generate the PnL record after a position reaches 0 size. Previously, querying immediately returned no results, causing the bot to default the PnL to $0.00 and report a false "Break-even" for Stop Loss hits.
+- **Added (Reply-to-Close):** Implemented Telegram reply-based management commands. Channel admins can now swipe to reply to a previous trade signal and type "close trade", "cancel trade now", or "exit trade now".
+- **Implementation (Reply-to-Close):**
+  - Updated `telegramListener.ts` to extract `replyToMsgId` from GramJS events.
+  - Passed `replyToMsgId` through `messageBuffer.ts` to `orchestrator.ts`.
+  - Added a `closeTradeByReply` function in `tradeManager.ts` that triggers an exchange market close (`reduceOnly: true` on Bybit and Binance) for the specific trade tied to the original signal.
+
 ## [2026-05-26T22:04:00-07:00]
 ### Added — Network Fee Warning on Billing Page
 - **Billing UI Update:** Added a prominent warning block to the `BillingPage` (`apps/web/app/(dashboard)/dashboard/billing/page.tsx`) instructing users to add an extra **0.5 USDC** to their transfer. This ensures that the final amount arriving in the generated wallet perfectly matches or exceeds the required threshold ($10 for Starter, $25 for Pro) despite exchange withdrawal fees.

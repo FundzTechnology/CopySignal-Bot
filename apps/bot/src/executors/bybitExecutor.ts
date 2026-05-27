@@ -177,3 +177,34 @@ export async function executeBybit(
 
   return { success: false, qty: 0, orderId: '', entryPrice: 0, error: 'Unknown execution failure' };
 }
+
+export async function closePositionBybit(apiKeyDoc: ApiKeyDoc, symbol: string) {
+  const baseUrl = apiKeyDoc.demo_mode ? 'https://api-demo.bybit.com' : undefined;
+  const client = new RestClientV5({
+    key: decrypt(apiKeyDoc.api_key),
+    secret: decrypt(apiKeyDoc.api_secret),
+    testnet: apiKeyDoc.testnet && !apiKeyDoc.demo_mode,
+    ...(baseUrl ? { baseUrl } : {}),
+  } as any);
+
+  // 1. Cancel all open orders for this symbol (TP/SL/Limit entries)
+  await client.cancelAllOrders({ category: 'linear', symbol }).catch(() => null);
+
+  // 2. Fetch position
+  const posRes = await client.getPositionInfo({ category: 'linear', symbol }).catch(() => null);
+  const pos = posRes?.result?.list?.[0];
+  
+  if (pos && parseFloat(pos.size) > 0) {
+    const side = pos.side === 'Buy' ? 'Sell' : 'Buy';
+    await client.submitOrder({
+      category: 'linear',
+      symbol,
+      side,
+      orderType: 'Market',
+      qty: pos.size,
+      reduceOnly: true,
+      timeInForce: 'IOC',
+      positionIdx: 0,
+    });
+  }
+}

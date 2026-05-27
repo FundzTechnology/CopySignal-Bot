@@ -83,6 +83,14 @@ export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercen
             }
             // ── Step 5: Place order (Limit or Market) ──
             const orderType = signal.useMarketPrice ? 'Market' : 'Limit';
+            // Determine which Take Profit target to set in Bybit
+            // Default to TP1 (index 0). If >= 3 targets, use the dynamic formula:
+            // 3-4 targets -> TP2 (index 1), 5-6 targets -> TP3 (index 2), 7-8 targets -> TP4 (index 3)
+            let tpIndex = 0;
+            if (signal.take_profits.length >= 3) {
+                tpIndex = Math.floor((signal.take_profits.length - 1) / 2);
+            }
+            const takeProfitPrice = signal.take_profits.length ? String(signal.take_profits[tpIndex]) : undefined;
             const orderRes = await client.submitOrder({
                 category: 'linear',
                 symbol: signal.symbol,
@@ -90,7 +98,7 @@ export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercen
                 orderType: orderType,
                 price: orderType === 'Limit' ? String(signal.entry) : undefined,
                 qty: finalQtyStr,
-                takeProfit: signal.take_profits.length ? String(signal.take_profits[0]) : undefined,
+                takeProfit: takeProfitPrice,
                 stopLoss: signal.stop_loss ? String(signal.stop_loss) : undefined,
                 tpTriggerBy: 'LastPrice',
                 slTriggerBy: 'LastPrice',
@@ -128,5 +136,32 @@ export async function executeBybit(apiKeyDoc, signal, riskPercent, multiTpPercen
         }
     }
     return { success: false, qty: 0, orderId: '', entryPrice: 0, error: 'Unknown execution failure' };
+}
+export async function closePositionBybit(apiKeyDoc, symbol) {
+    const baseUrl = apiKeyDoc.demo_mode ? 'https://api-demo.bybit.com' : undefined;
+    const client = new RestClientV5({
+        key: decrypt(apiKeyDoc.api_key),
+        secret: decrypt(apiKeyDoc.api_secret),
+        testnet: apiKeyDoc.testnet && !apiKeyDoc.demo_mode,
+        ...(baseUrl ? { baseUrl } : {}),
+    });
+    // 1. Cancel all open orders for this symbol (TP/SL/Limit entries)
+    await client.cancelAllOrders({ category: 'linear', symbol }).catch(() => null);
+    // 2. Fetch position
+    const posRes = await client.getPositionInfo({ category: 'linear', symbol }).catch(() => null);
+    const pos = posRes?.result?.list?.[0];
+    if (pos && parseFloat(pos.size) > 0) {
+        const side = pos.side === 'Buy' ? 'Sell' : 'Buy';
+        await client.submitOrder({
+            category: 'linear',
+            symbol,
+            side,
+            orderType: 'Market',
+            qty: pos.size,
+            reduceOnly: true,
+            timeInForce: 'IOC',
+            positionIdx: 0,
+        });
+    }
 }
 //# sourceMappingURL=bybitExecutor.js.map

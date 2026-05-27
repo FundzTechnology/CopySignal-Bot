@@ -5,7 +5,7 @@ import { bufferMessage } from "../parser/messageBuffer.js";
 
 class TelegramListener {
   private client: TelegramClient | null = null;
-  private activeChannels: Map<string, { callback: (msg: string, msgId: string) => void, bufferWindowMs?: number }> = new Map();
+  private activeChannels: Map<string, { callback: (msg: string, msgId: string, replyToMsgId?: string) => void, bufferWindowMs?: number }> = new Map();
 
   async connect() {
     const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
@@ -51,6 +51,7 @@ class TelegramListener {
         const strippedChatId = chatId.replace('-100', '');
         const username = chat && (chat as any).username ? `@${(chat as any).username}` : null;
         const messageId = String(message.id);
+        const replyToMsgId = (message as any).replyToMsgId ? String((message as any).replyToMsgId) : (message as any).replyTo?.replyToMsgId ? String((message as any).replyTo?.replyToMsgId) : undefined;
 
         for (const [channelKey, channelData] of this.activeChannels.entries()) {
           const keyLower = channelKey.toLowerCase();
@@ -73,9 +74,10 @@ class TelegramListener {
               text,
               messageId,
               channelData.bufferWindowMs,
-              (combinedText, messageIds) => {
+              replyToMsgId,
+              (combinedText, messageIds, firstReplyId) => {
                 // Pass the combined text and the first message ID as the deduplication key
-                channelData.callback(combinedText, messageIds[0]);
+                channelData.callback(combinedText, messageIds[0], firstReplyId);
               }
             );
             return; // matched, stop searching
@@ -86,7 +88,7 @@ class TelegramListener {
     );
   }
 
-  async addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string) => void, bufferWindowMs?: number) {
+  async addChannel(channelIdentifier: string, onMessage: (msg: string, msgId: string, replyToMsgId?: string) => void, bufferWindowMs?: number) {
     const channelData: any = { callback: onMessage, bufferWindowMs };
     this.activeChannels.set(channelIdentifier, channelData);
     

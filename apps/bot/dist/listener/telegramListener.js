@@ -34,6 +34,7 @@ class TelegramListener {
             const strippedChatId = chatId.replace('-100', '');
             const username = chat && chat.username ? `@${chat.username}` : null;
             const messageId = String(message.id);
+            const replyToMsgId = message.replyToMsgId ? String(message.replyToMsgId) : message.replyTo?.replyToMsgId ? String(message.replyTo?.replyToMsgId) : undefined;
             for (const [channelKey, channelData] of this.activeChannels.entries()) {
                 const keyLower = channelKey.toLowerCase();
                 // Match by raw ID, stripped ID (-100 removed), username, or resolved numeric ID
@@ -43,9 +44,9 @@ class TelegramListener {
                     (channelData.resolvedId && (chatId === channelData.resolvedId ||
                         strippedChatId === channelData.resolvedId.replace('-100', '')))) {
                     console.log(`📨 New message buffering from ${channelKey}`);
-                    bufferMessage(channelKey, senderId, text, messageId, channelData.bufferWindowMs, (combinedText, messageIds) => {
+                    bufferMessage(channelKey, senderId, text, messageId, channelData.bufferWindowMs, replyToMsgId, (combinedText, messageIds, firstReplyId) => {
                         // Pass the combined text and the first message ID as the deduplication key
-                        channelData.callback(combinedText, messageIds[0]);
+                        channelData.callback(combinedText, messageIds[0], firstReplyId);
                     });
                     return; // matched, stop searching
                 }

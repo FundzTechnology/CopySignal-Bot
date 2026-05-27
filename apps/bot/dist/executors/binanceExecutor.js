@@ -121,4 +121,33 @@ export async function executeBinance(apiKeyDoc, signal, riskPercent, multiTpPerc
         return { success: false, qty: 0, orderId: '', entryPrice: 0, error: err.message };
     }
 }
+export async function closePositionBinance(apiKeyDoc, symbol) {
+    const clientOptions = {
+        apiKey: decrypt(apiKeyDoc.api_key),
+        apiSecret: decrypt(apiKeyDoc.api_secret),
+    };
+    if (apiKeyDoc.testnet) {
+        clientOptions.httpFutures = 'https://testnet.binancefuture.com';
+    }
+    const client = Binance(clientOptions);
+    // 1. Cancel all open orders for this symbol
+    await client.futuresCancelAllOpenOrders({ symbol }).catch(() => null);
+    // 2. Fetch position
+    const account = await client.futuresAccount();
+    const pos = account.positions?.find((p) => p.symbol === symbol);
+    if (pos) {
+        const positionAmt = parseFloat(pos.positionAmt);
+        if (positionAmt !== 0) {
+            const side = positionAmt > 0 ? 'SELL' : 'BUY';
+            const qty = Math.abs(positionAmt);
+            await client.futuresOrder({
+                symbol,
+                side,
+                type: 'MARKET',
+                quantity: String(qty),
+                reduceOnly: 'true',
+            });
+        }
+    }
+}
 //# sourceMappingURL=binanceExecutor.js.map

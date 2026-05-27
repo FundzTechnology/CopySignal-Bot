@@ -89,7 +89,8 @@ export function parseSignal(rawText) {
         let match;
         while ((match = regex.exec(text)) !== null) {
             const val = cleanNumber(match[1]);
-            if (!isNaN(val) && val >= 10 && !result.take_profits.includes(val)) {
+            // Exclude values that look like plain list indexes if they somehow slip through
+            if (!isNaN(val) && val > 0 && !result.take_profits.includes(val)) {
                 result.take_profits.push(val);
             }
         }
@@ -98,8 +99,11 @@ export function parseSignal(rawText) {
         const listMatch = text.match(PATTERNS.targetList);
         if (listMatch) {
             const tps = listMatch[1]
-                .split(/[\/\|\s]+/)
-                .map(s => cleanNumber(s.trim()))
+                .split(/[\/\|\s\n\,]+/)
+                .map(s => s.trim())
+                // Filter out strings that look like list indices (e.g. "1)", "2.", "[3]", "T1", "TP1")
+                .filter(s => s.length > 0 && !/^(?:T\d?|TP\d?|\d+[\)\.\:]|\[\d+\]|\d+)$/i.test(s))
+                .map(s => cleanNumber(s))
                 .filter(n => !isNaN(n) && n > 0);
             result.take_profits = tps;
         }

@@ -109,8 +109,8 @@ async function boot() {
 
     telegramListener.addChannel(
       chanId,
-      (message: string, messageId: string) => {
-        handleSignal(message, messageId, channelDoc);
+      (message: string, messageId: string, replyToMsgId?: string) => {
+        handleSignal(message, messageId, channelDoc, replyToMsgId);
       },
       channelDoc.buffer_window_seconds
     );
@@ -142,8 +142,8 @@ async function boot() {
 
       telegramListener.addChannel(
         chanId,
-        (message: string, messageId: string) => {
-          handleSignal(message, messageId, channelDoc);
+        (message: string, messageId: string, replyToMsgId?: string) => {
+          handleSignal(message, messageId, channelDoc, replyToMsgId);
         },
         channelDoc.buffer_window_seconds
       );

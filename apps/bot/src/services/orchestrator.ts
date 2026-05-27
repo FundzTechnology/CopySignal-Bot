@@ -10,7 +10,8 @@ import { notify } from './notificationService.js';
 export async function handleSignal(
   rawMessage: string,
   messageId: string,
-  channelDoc: any
+  channelDoc: any,
+  replyToMsgId?: string
 ) {
   const userId = channelDoc.user_id;
   console.log(`[Orchestrator] 📨 Signal received from channel "${channelDoc.name}" for user ${userId}`);
@@ -27,6 +28,38 @@ export async function handleSignal(
     }
   } catch {
     // signals collection may not exist — proceed
+  }
+
+  // ── GATE 1.5: Reply-based Close Command ─────────────────────
+  if (replyToMsgId && /\b(CLOSE|EXIT|CANCEL)\b/i.test(rawMessage)) {
+    console.log(`[Orchestrator] 🛑 Received close command as reply to ${replyToMsgId}`);
+    try {
+      const originalSignals = await db.listDocuments("signals", {
+        filters: { telegram_message_id: replyToMsgId, channel_id: channelDoc.id }
+      }) as any[];
+      if (originalSignals.length > 0) {
+        const sigDoc = originalSignals[0].data || originalSignals[0];
+        const signalId = sigDoc.id || sigDoc._id || originalSignals[0].id || originalSignals[0]._id;
+        const activeTrades = await db.listDocuments("trade_logs", {
+          filters: { signal_id: signalId, status: 'filled', user_id: userId }
+        }) as any[];
+        if (activeTrades.length > 0) {
+          const { closeTradeByReply } = await import('./tradeManager.js');
+          // Handle the case where there might be multiple trades (e.g. multiple users if channelDoc was shared, but user_id is filtered)
+          for (const tradeRaw of activeTrades) {
+            const trade = tradeRaw.data || tradeRaw;
+            // Inject the ID since we unwrapped it
+            trade.id = trade.id || trade._id || tradeRaw.id || tradeRaw._id;
+            await closeTradeByReply(userId, trade, channelDoc);
+          }
+        } else {
+          console.log(`[Orchestrator] No active trades found for signal ${signalId}`);
+        }
+      }
+    } catch (err) {
+      console.error(`[Orchestrator] Error processing reply-to-close:`, err);
+    }
+    return; // Done processing this reply message
   }
 
   // ── GATE 2: Trigger Keyword Filtering ───────────────────────

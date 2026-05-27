@@ -87,8 +87,8 @@ async function boot() {
             is_active: true,
         };
         console.log(`  📡 Subscribing to: ${chanId} (${channelDoc.name}) [${channelDoc.exchange}]`);
-        telegramListener.addChannel(chanId, (message, messageId) => {
-            handleSignal(message, messageId, channelDoc);
+        telegramListener.addChannel(chanId, (message, messageId, replyToMsgId) => {
+            handleSignal(message, messageId, channelDoc, replyToMsgId);
         }, channelDoc.buffer_window_seconds);
     }
     // Watch for new channels being added or removed in real time
@@ -113,8 +113,8 @@ async function boot() {
                 buffer_window_seconds: ch.buffer_window_seconds,
                 is_active: true,
             };
-            telegramListener.addChannel(chanId, (message, messageId) => {
-                handleSignal(message, messageId, channelDoc);
+            telegramListener.addChannel(chanId, (message, messageId, replyToMsgId) => {
+                handleSignal(message, messageId, channelDoc, replyToMsgId);
             }, channelDoc.buffer_window_seconds);
         }
     });
@@ -204,6 +204,9 @@ async function boot() {
                     qty: t.qty || tradeRaw.qty || 0,
                     takeProfit: t.take_profit || tradeRaw.take_profit,
                     stopLoss: t.stop_loss || tradeRaw.stop_loss,
+                    channelName: t.channel_name || tradeRaw.channel_name || 'Unknown Channel',
+                    // On recovery, the order is already filled (that's why status==='filled'), so skip Phase 1
+                    isMarketOrder: true,
                     apiKeyDoc,
                 });
             }

@@ -1,2 +1,2 @@
-export declare function handleSignal(rawMessage: string, messageId: string, channelDoc: any): Promise<void>;
+export declare function handleSignal(rawMessage: string, messageId: string, channelDoc: any, replyToMsgId?: string): Promise<void>;
 //# sourceMappingURL=orchestrator.d.ts.map

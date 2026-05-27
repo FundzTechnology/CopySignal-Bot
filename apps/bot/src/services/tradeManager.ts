@@ -1,5 +1,8 @@
 import { db } from '../db/cocobase.js';
 import { ManagementAction } from '../parser/managementParser.js';
+import { closePositionBybit } from '../executors/bybitExecutor.js';
+import { closePositionBinance } from '../executors/binanceExecutor.js';
+import { notify } from './notificationService.js';
 
 export async function executeManagementAction(
   userId: string,
@@ -84,5 +87,62 @@ export async function executeManagementAction(
     } catch (err) {
       console.error(`Failed to execute management action on ${tradeDoc.id}:`, err);
     }
+  }
+}
+
+export async function closeTradeByReply(userId: string, tradeDoc: any, channelDoc: any) {
+  console.log(`[TradeManager] Executing reply-to-close for trade ${tradeDoc.id} (${tradeDoc.symbol})`);
+  try {
+    // 1. Fetch API Keys
+    let apiKeyDoc: any = null;
+    const apiKeys = await db.listDocuments("api_keys", {
+      filters: { user_id: userId, exchange: channelDoc.exchange }
+    }) as any[];
+    if (apiKeys.length > 0) apiKeyDoc = apiKeys[0].data || apiKeys[0];
+    
+    if (!apiKeyDoc) {
+      // Fallback: fetch all and filter in code
+      const allKeys = await db.listDocuments("api_keys", {}) as any[];
+      const found = allKeys.find((k: any) => {
+        const d = k.data || k;
+        return (d.user_id || k.user_id) === userId && (d.exchange || k.exchange) === channelDoc.exchange;
+      });
+      if (found) apiKeyDoc = found.data || found;
+    }
+
+    if (!apiKeyDoc) {
+      console.log(`[TradeManager] No API key found for user ${userId} on ${channelDoc.exchange} to close trade.`);
+      return;
+    }
+
+    // 2. Call Exchange
+    if (channelDoc.exchange === 'bybit') {
+      await closePositionBybit(apiKeyDoc, tradeDoc.symbol);
+    } else {
+      await closePositionBinance(apiKeyDoc, tradeDoc.symbol);
+    }
+
+    // 3. Mark in DB as manually closed
+    await db.updateDocument("trade_logs", tradeDoc.id, {
+      status: 'manual_close',
+      closed_at: new Date().toISOString()
+    });
+
+    // 4. Notify user
+    await notify({
+      type: 'TRADE_CLOSED',
+      userId,
+      payload: {
+        symbol: tradeDoc.symbol,
+        side: tradeDoc.side,
+        entryPrice: tradeDoc.entry_price,
+        qty: tradeDoc.qty,
+        pnl: 0, // Manual close, we don't have exact PnL immediately unless we fetch it
+        channelName: channelDoc.name || 'Unknown Channel',
+      }
+    });
+    console.log(`[TradeManager] Successfully closed trade ${tradeDoc.id} via reply command.`);
+  } catch (err) {
+    console.error(`[TradeManager] Failed to close trade via reply:`, err);
   }
 }

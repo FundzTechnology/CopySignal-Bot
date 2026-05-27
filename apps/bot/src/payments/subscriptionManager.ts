@@ -31,7 +31,7 @@ export async function activateSubscription(params: ActivateParams) {
   // This is what the dashboard reads via user.data.plan
   try {
     const existingUser = await db.auth.getUserById(userId);
-    await db.auth.updateUser(userId, {
+    await (db.auth as any).updateUser(userId, {
       data: {
         ...(existingUser?.data || {}),
         plan,

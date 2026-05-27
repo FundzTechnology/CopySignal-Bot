@@ -8,7 +8,7 @@ async function upgradeUser() {
     console.log("Fetching users from auth...");
     // @ts-ignore
     const res = await db.auth.listUsers(); 
-    const usersList = res.users || res.data || (Array.isArray(res) ? res : []);
+    const usersList = (res as any).users || (res as any).data || (Array.isArray(res) ? res : []);
     const target = usersList.find((u: any) => u.email === 'emmafund1984@gmail.com');
     if (!target) {
       console.log("User not found in listUsers.");
@@ -23,7 +23,7 @@ async function upgradeUser() {
     await db.auth.login({ email: 'emmafund1984@gmail.com', password: 'bellofamily' });
 
     // Update via auth.updateUser (primary method — this is what the dashboard reads)
-    await db.auth.updateUser(target.id, {
+    await (db.auth as any).updateUser(target.id, {
       data: {
         ...target.data,
         plan: 'pro',

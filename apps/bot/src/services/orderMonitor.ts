@@ -213,17 +213,28 @@ async function monitorOpenPosition(
       // ── Fetch closed PnL history ──
       // IMPORTANT: Filter by time — only look at entries from AFTER monitorStartTime
       // to avoid matching a previous (unrelated) trade's PnL record.
-      const monitorStartSec = Math.floor(monitorStartTime / 1000);
 
-      const pnlRes = await client.getClosedPnL({
-        category: 'linear',
-        symbol,
-        limit: 20,
-        // startTime is in milliseconds for Bybit API
-        startTime: monitorStartTime,
-      }).catch(() => null);
-
-      const closedList = pnlRes?.result?.list || [];
+      let closedList: any[] = [];
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const pnlRes = await client.getClosedPnL({
+          category: 'linear',
+          symbol,
+          limit: 20,
+          // startTime is in milliseconds for Bybit API
+          startTime: monitorStartTime,
+        }).catch(() => null);
+        
+        closedList = pnlRes?.result?.list || [];
+        
+        if (closedList.length > 0) {
+          break; // Found it!
+        }
+        
+        if (attempt < 4) {
+          console.log(`[OrderMonitor] ⏳ Waiting for Bybit PnL record... (attempt ${attempt})`);
+          await sleep(5000); // Wait 5 seconds before retrying
+        }
+      }
 
       console.log(`[OrderMonitor] 📋 Found ${closedList.length} closed PnL entries since monitor start.`);
 

@@ -2,6 +2,7 @@ interface BufferedMessage {
   text: string;
   timestamp: number;
   messageId: string;
+  replyToMsgId?: string;
 }
 
 interface ChannelBuffer {
@@ -22,7 +23,8 @@ export function bufferMessage(
   text: string,
   messageId: string,
   bufferWindowMs: number | undefined,
-  onComplete: (combinedText: string, messageIds: string[]) => void
+  replyToMsgId: string | undefined,
+  onComplete: (combinedText: string, messageIds: string[], replyToMsgId?: string) => void
 ) {
   const bufferKey = `${channelId}:${senderId}`;
   const now = Date.now();
@@ -37,7 +39,7 @@ export function bufferMessage(
   }
 
   // Add new message to buffer
-  buffer.messages.push({ text, timestamp: now, messageId });
+  buffer.messages.push({ text, timestamp: now, messageId, replyToMsgId });
 
   // Clear existing timer and set a new one
   if (buffer.timer) clearTimeout(buffer.timer);
@@ -53,12 +55,15 @@ export function bufferMessage(
       .join('\n');
 
     const allMessageIds = buf.messages.map(m => m.messageId);
+    
+    // Use the replyToMsgId from the first message if present
+    const firstReplyId = buf.messages.find(m => m.replyToMsgId)?.replyToMsgId;
 
     // Clear the buffer
     buffers.delete(bufferKey);
 
     // Hand combined text to signal handler
-    onComplete(combinedText, allMessageIds);
+    onComplete(combinedText, allMessageIds, firstReplyId);
 
   }, windowMs);
 }

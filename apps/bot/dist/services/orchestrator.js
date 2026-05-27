@@ -6,7 +6,7 @@ import { executeManagementAction } from './tradeManager.js';
 import { executeBybit } from '../executors/bybitExecutor.js';
 import { executeBinance } from '../executors/binanceExecutor.js';
 import { notify } from './notificationService.js';
-export async function handleSignal(rawMessage, messageId, channelDoc) {
+export async function handleSignal(rawMessage, messageId, channelDoc, replyToMsgId) {
     const userId = channelDoc.user_id;
     console.log(`[Orchestrator] 📨 Signal received from channel "${channelDoc.name}" for user ${userId}`);
     console.log(`[Orchestrator] Raw message (first 200 chars): ${rawMessage.substring(0, 200)}`);
@@ -22,6 +22,39 @@ export async function handleSignal(rawMessage, messageId, channelDoc) {
     }
     catch {
         // signals collection may not exist — proceed
+    }
+    // ── GATE 1.5: Reply-based Close Command ─────────────────────
+    if (replyToMsgId && /\b(CLOSE|EXIT|CANCEL)\b/i.test(rawMessage)) {
+        console.log(`[Orchestrator] 🛑 Received close command as reply to ${replyToMsgId}`);
+        try {
+            const originalSignals = await db.listDocuments("signals", {
+                filters: { telegram_message_id: replyToMsgId, channel_id: channelDoc.id }
+            });
+            if (originalSignals.length > 0) {
+                const sigDoc = originalSignals[0].data || originalSignals[0];
+                const signalId = sigDoc.id || sigDoc._id || originalSignals[0].id || originalSignals[0]._id;
+                const activeTrades = await db.listDocuments("trade_logs", {
+                    filters: { signal_id: signalId, status: 'filled', user_id: userId }
+                });
+                if (activeTrades.length > 0) {
+                    const { closeTradeByReply } = await import('./tradeManager.js');
+                    // Handle the case where there might be multiple trades (e.g. multiple users if channelDoc was shared, but user_id is filtered)
+                    for (const tradeRaw of activeTrades) {
+                        const trade = tradeRaw.data || tradeRaw;
+                        // Inject the ID since we unwrapped it
+                        trade.id = trade.id || trade._id || tradeRaw.id || tradeRaw._id;
+                        await closeTradeByReply(userId, trade, channelDoc);
+                    }
+                }
+                else {
+                    console.log(`[Orchestrator] No active trades found for signal ${signalId}`);
+                }
+            }
+        }
+        catch (err) {
+            console.error(`[Orchestrator] Error processing reply-to-close:`, err);
+        }
+        return; // Done processing this reply message
     }
     // ── GATE 2: Trigger Keyword Filtering ───────────────────────
     const keyword = channelDoc.trigger_keyword;
@@ -201,8 +234,11 @@ export async function handleSignal(rawMessage, messageId, channelDoc) {
                 entryPrice: result.entryPrice,
                 qty: result.qty,
                 takeProfit: tpSelection.initialTP,
+                firstTarget: parsed.take_profits.length ? parsed.take_profits[0] : undefined,
                 stopLoss: parsed.stop_loss ?? undefined,
                 apiKeyDoc: unwrappedKey,
+                isMarketOrder: !!parsed.useMarketPrice, // Skip Phase 1 for market fills
+                channelName: channelDoc.name || channelDoc.channel_username || 'Unknown Channel',
             });
         }
     }
