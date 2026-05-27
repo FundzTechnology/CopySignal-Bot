@@ -254,18 +254,22 @@ async function monitorOpenPosition(
       if (execType === 'TakeProfit' || execType === 'PartialTakeProfit') {
         outcome = 'tp_hit';
       } else if (execType === 'StopLoss') {
-        // If slMovedToEntry is true, this is a break-even hit (will be recorded as closed/sl_hit with ~0 PNL).
-        outcome = slMovedToEntry && Math.abs(pnl) < Math.abs(entryPrice * qty * 0.005) ? 'closed' : 'sl_hit';
+        // Regardless of whether slMovedToEntry is true or not, this IS a Stop Loss hit.
+        // If slMovedToEntry is true, the SL was at entry price → break-even result.
+        // We still send SL_HIT so the user knows their SL was triggered.
+        // The PnL of ~$0 will indicate break-even in the SL_HIT message.
+        outcome = 'sl_hit';
       } else if (execType === 'Trade') {
         outcome = 'manual_close';
       } else {
-        // Fallback to PNL based detection
+        // Fallback to PNL-based detection (execType was null/unknown)
         if (pnl > 0) {
           outcome = 'tp_hit';
         } else if (pnl < 0) {
           outcome = 'sl_hit';
         } else {
-          outcome = 'closed';
+          // PnL is 0: could be break-even SL hit or unknown close
+          outcome = slMovedToEntry ? 'sl_hit' : 'closed';
         }
       }
 

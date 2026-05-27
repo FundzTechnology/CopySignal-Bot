@@ -416,7 +416,7 @@ Lev 15x`}</CodeBlock>
           {/* CTA */}
           <div className="bg-gradient-to-br from-blue-950/60 to-purple-950/40 border border-blue-500/20 rounded-3xl p-10 text-center space-y-5">
             <h2 className="text-3xl font-bold">Ready to Start?</h2>
-            <p className="text-zinc-400 max-w-xl mx-auto">Create your free account and get 5 days of Pro access — no payment required. Built and owned by Fundz Technology.</p>
+            <p className="text-zinc-400 max-w-xl mx-auto">Create your free account and get 5 days of Pro access — no payment required. Starter plan from <strong className="text-white">$10/mo</strong>, Pro from <strong className="text-white">$25/mo</strong>. Pay with USDC on Solana or SUI.</p>
             <Link href="/register" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-full text-lg transition-all shadow-[0_0_40px_-10px_rgba(59,130,246,0.6)] hover:scale-105">
               Start Free Trial <ArrowRight className="h-5 w-5" />
             </Link>

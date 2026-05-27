@@ -27,15 +27,36 @@ export async function activateSubscription(params: ActivateParams) {
     expires_at: expiresAt.toISOString(),
   });
 
-  // ── 2. Update user's live plan state ──
-  await db.updateDocument('users', userId, {
-    plan,
-    plan_expires_at: expiresAt.toISOString(),
-    trial_used: true,
-    subscription_warning: false,
-  });
+  // ── 2. Update user's live plan state in auth ──
+  // This is what the dashboard reads via user.data.plan
+  try {
+    const existingUser = await db.auth.getUserById(userId);
+    await db.auth.updateUser(userId, {
+      data: {
+        ...(existingUser?.data || {}),
+        plan,
+        plan_expires_at: expiresAt.toISOString(),
+        trial_used: true,
+        subscription_warning: false,
+      },
+    });
+  } catch (authUpdateErr: any) {
+    console.warn(`[subscriptionManager] Failed to update auth user plan:`, authUpdateErr.message || authUpdateErr);
+  }
 
-  // ── 3. Send Telegram confirmation ──
+  // ── 3. Also update the custom users collection as backup ──
+  try {
+    await db.updateDocument('users', userId, {
+      plan,
+      plan_expires_at: expiresAt.toISOString(),
+      trial_used: true,
+      subscription_warning: false,
+    });
+  } catch {
+    // Non-fatal — auth user data is the source of truth
+  }
+
+  // ── 4. Send Telegram confirmation ──
   const user = await db.auth.getUserById(userId);
   if (user?.data?.telegram_user_id) {
     await notify({

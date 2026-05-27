@@ -18,7 +18,7 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$10.5 / mo',
+    price: '$10 / mo',
     amount: 10,
     channels: '1 channel',
     exchanges: '1 exchange',
@@ -28,7 +28,7 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '$25.5 / mo',
+    price: '$25 / mo',
     amount: 25,
     channels: 'Unlimited',
     exchanges: 'Both',
@@ -128,7 +128,7 @@ export default function BillingPage() {
     : null;
 
   const baseAmount = PLANS.find(p => p.id === selectedPlan)?.amount || 0;
-  const selectedPlanAmount = baseAmount ? baseAmount + 0.5 : 0;
+  const selectedPlanAmount = baseAmount;
 
   // Renewal UX logic
   const isExpiringSoon = expiresAtDate && (expiresAtDate.getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000);
@@ -259,9 +259,6 @@ export default function BillingPage() {
           </p>
           <p className="text-zinc-500 text-xs mt-1">
             {selectedChain === 'sui' ? 'USDC on SUI network' : 'USDC on Solana network'}
-          </p>
-          <p className="text-yellow-400 text-xs mt-2 font-semibold">
-            (Includes an extra $0.50 to cover exchange withdrawal fees and ensure the system picks up the payment)
           </p>
         </div>
 

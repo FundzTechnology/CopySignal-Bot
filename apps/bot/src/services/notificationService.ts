@@ -123,7 +123,9 @@ _CopySignal Bot_`.trim();
 
 function formatSLHit(p: SLHitPayload): string {
   const directionEmoji = (p.side === 'Buy' || p.side === 'Long') ? '🟢' : '🔴';
-  const lossStr = `-$${Math.abs(p.loss).toFixed(2)}`;
+  const lossStr = Math.abs(p.loss) < 0.01
+    ? `$0.00 (Break-even — SL was at Entry)` // SL moved to entry, triggered at 0 loss
+    : `-$${Math.abs(p.loss).toFixed(2)}`;
   return `
 🛑 *Stop Loss Hit* ${directionEmoji}
 ━━━━━━━━━━━━━━━━━
@@ -144,6 +146,7 @@ function formatTradeClosed(p: TradeClosedPayload): string {
     : p.pnl < 0
       ? `-$${Math.abs(p.pnl).toFixed(2)} ❌`
       : `$0.00 (Break-even)`;
+  const closeReason = p.pnl > 0 ? 'Take Profit / Close' : p.pnl < 0 ? 'Stop Loss' : 'Break-even (SL at Entry)';
   return `
 📊 *Trade Closed*
 ━━━━━━━━━━━━━━━━━
@@ -152,7 +155,7 @@ function formatTradeClosed(p: TradeClosedPayload): string {
 *Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
 *Qty:* \`${p.qty}\`
 *Realised P&L:* \`${pnlStr}\`
-*Closed:* Break-even
+*Closed:* ${closeReason}
 ${p.channelName ? `*Channel:* ${p.channelName}` : ''}
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
@@ -172,7 +175,7 @@ function formatManualClose(p: TradeClosedPayload): string {
 *Entry Price:* \`$${p.entryPrice.toLocaleString()}\`
 *Qty:* \`${p.qty}\`
 *Realised P&L:* \`${pnlStr}\`
-*Closed:* Manually
+*Closed:* Manually / ${p.pnl >= 0 ? 'Profit' : 'Loss'}
 ${p.channelName ? `*Channel:* ${p.channelName}` : ''}
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();

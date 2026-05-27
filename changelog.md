@@ -1,3 +1,15 @@
+## [2026-05-26T21:51:00-07:00]
+### Fixed & Improved — SUI Watcher, Landing Page Pricing, Subscription System, and Trade Notifications
+- **SUI Watcher Deploy:** The local code for the SUI watcher was correct but the Fly.io container was stale, throwing warnings for `SUI_WALLET_ADDRESS` not set. We triggered a new deployment to Fly.io so the bot uses `SUI_MASTER_WALLET` correctly.
+- **Payment Verification:** Confirmed that SUI and Solana payment generation accurately demands $10 for Starter and $25 for Pro based on `STARTER_THRESHOLD` and `PRO_THRESHOLD`.
+- **Landing Page & Guide Pricing Update:** Updated the pricing text across the marketing pages (from $29/$79 to $10/$25) and updated the corresponding feature lists in `page.tsx` and `guide/page.tsx`.
+- **Account Plan Override:** Fixed and re-ran the `makePro.ts` script to successfully upgrade the `emmafund1984@gmail.com` account to 'pro' until 2032-12-31. Modified the script and the `subscriptionManager.ts` to properly call `db.auth.updateUser` so the auth user's payload is updated (resolving the persistent warning).
+- **Plan Badge UI:** Added a visible subscription plan badge to the Sidebar. It dynamically reads the user's current plan and displays PRO (blue), STARTER (emerald), TRIAL (purple), or FREE (muted), keeping the user aware of their status.
+- **Bug Fix — Trade Closed Alerts:** Fixed a critical bug in `orderMonitor.ts` and `notificationService.ts` that caused SL and TP hits to display as "Break-even". 
+  - `notificationService.ts`: Removed the hardcoded "*Closed:* Break-even" text, updating it to dynamically reflect the reason (Profit, Stop Loss, or Break-even SL).
+  - `notificationService.ts`: Also updated the loss formatting so that a $0 loss explicitly displays as `$0.00 (Break-even — SL was at Entry)`.
+  - `orderMonitor.ts`: Fixed the classification so that when a trade closes via `StopLoss` but `slMovedToEntry` is true (resulting in ~$0 PnL), it still triggers an `SL_HIT` notification rather than falling back to `TRADE_CLOSED`.
+
 ## [2026-05-26T20:47:08-07:00]
 ### Fixed — flyctl Not Recognized / Fly.io Deployment Broken
 - **Problem:** Running `flyctl deploy` (or `fly deploy`) from `apps/bot` failed with `CommandNotFoundException` — the shell could not find `flyctl` anywhere on `PATH`. Investigating `C:\Users\SIR KOJO\.fly\bin\` revealed that a previous auto-update had **corrupted the installation**: only `flyctl.exe.old` and `flyctl.zip` existed in the folder — the actual `flyctl.exe` binary was missing entirely.

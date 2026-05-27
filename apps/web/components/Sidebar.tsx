@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/cocobase';
-import { Bot, LayoutDashboard, Rss, ArrowRightLeft, Settings, CreditCard, LogOut, PauseCircle, PlayCircle, Trophy } from 'lucide-react';
+import { Bot, LayoutDashboard, Rss, ArrowRightLeft, Settings, CreditCard, LogOut, PauseCircle, PlayCircle, Trophy, Crown, Sparkles, Zap } from 'lucide-react';
 import { FooterBranding } from '@/components/FooterBranding';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useBotStatus } from '@/context/BotStatusContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const links = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -21,6 +22,32 @@ export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { botActive, channelCount, pausing, toggleBot } = useBotStatus();
+  const { user } = useAuth();
+  const currentPlan = user?.data?.plan || 'free';
+
+  const planConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+    pro: {
+      label: 'PRO',
+      icon: <Crown className="h-3.5 w-3.5" />,
+      className: 'bg-blue-500/15 border-blue-500/40 text-blue-400',
+    },
+    starter: {
+      label: 'STARTER',
+      icon: <Zap className="h-3.5 w-3.5" />,
+      className: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400',
+    },
+    trial: {
+      label: 'TRIAL',
+      icon: <Sparkles className="h-3.5 w-3.5" />,
+      className: 'bg-purple-500/15 border-purple-500/40 text-purple-400',
+    },
+    free: {
+      label: 'FREE',
+      icon: null,
+      className: 'bg-zinc-800/60 border-zinc-700/50 text-zinc-500',
+    },
+  };
+  const plan = planConfig[currentPlan] || planConfig.free;
 
   const handleSignOut = async () => {
     await db.auth.logout();
@@ -56,6 +83,26 @@ export default function Sidebar() {
             {botActive ? `Listening to ${channelCount} channel${channelCount !== 1 ? 's' : ''}` : 'No signals being processed'}
           </p>
         </div>
+
+        {/* Plan Badge */}
+        <Link
+          href="/dashboard/billing"
+          className={`flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all hover:opacity-90 ${plan.className}`}
+          title={`Current plan: ${currentPlan}. Click to manage.`}
+        >
+          <div className="flex items-center gap-2">
+            {plan.icon}
+            <span className="text-xs font-bold tracking-widest uppercase">{plan.label} Plan</span>
+          </div>
+          {currentPlan !== 'free' && user?.data?.plan_expires_at && (
+            <span className="text-[10px] font-medium opacity-70">
+              {new Date(user.data.plan_expires_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </span>
+          )}
+          {currentPlan === 'free' && (
+            <span className="text-[10px] font-semibold opacity-80">Upgrade →</span>
+          )}
+        </Link>
 
         {/* Emergency Stop / Resume */}
         <button

@@ -241,13 +241,14 @@ export default function LandingPage() {
               <div className="bg-card border border-border rounded-3xl p-8 shadow-lg relative">
                 <h3 className="text-2xl font-bold text-foreground mb-2">Starter</h3>
                 <div className="mb-6">
-                  <span className="text-4xl font-extrabold text-foreground">$29</span>
+                  <span className="text-4xl font-extrabold text-foreground">$10</span>
                   <span className="text-muted-foreground">/mo</span>
                 </div>
                 <ul className="space-y-4 mb-8">
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Up to 3 Telegram Channels</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Standard Execution Speed</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Binance & Bybit Support</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> 1 Telegram Channel</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Telegram Trade Alerts</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Bybit OR Binance Support</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Basic Dashboard</li>
                 </ul>
                 <Link href="/register" className="block w-full text-center bg-secondary hover:bg-secondary/80 text-foreground border border-border font-semibold py-3 rounded-xl transition-colors">
                   Start Free Trial
@@ -261,14 +262,15 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-2xl font-bold text-foreground mb-2">Pro</h3>
                 <div className="mb-6">
-                  <span className="text-4xl font-extrabold text-foreground">$79</span>
+                  <span className="text-4xl font-extrabold text-foreground">$25</span>
                   <span className="text-muted-foreground">/mo</span>
                 </div>
                 <ul className="space-y-4 mb-8">
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Unlimited Telegram Channels</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Priority API Execution Queue</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Advanced Trade Management</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Full P&L Analytics Dashboard</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Bybit + Binance Support</li>
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Personal Alert Bot DMs</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Priority Support</li>
                 </ul>
                 <Link href="/register" className="block w-full text-center bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-primary/25">
                   Start Free Trial

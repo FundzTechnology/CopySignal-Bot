@@ -26,7 +26,7 @@ export async function createPaymentSession(
     user_index: userIndex,
     plan,
     solana_usdc_address: walletAddress, // DB field still called this, but now stores base wallet
-    amount_expected: plan === 'starter' ? 29 : 79,
+    amount_expected: plan === 'starter' ? 10 : 25,
     status: 'pending',          // 'pending' | 'confirmed' | 'expired' | 'failed'
     chain: 'solana',
     created_at: new Date().toISOString(),
@@ -103,18 +103,28 @@ export async function handleSolanaPayment(
     console.error(`Error sweeping for user ${userIndex}`, e);
   }
 
-  // ── Verify amount is close enough (allow ±$1.00 for rounding/fees) ──
-  const expectedAmount = session.amount_expected;
-  const diff = Math.abs(amountUSDC - expectedAmount);
-  if (diff > 1.0) {
+  // ── Determine plan from amount received ──
+  // Starter: $10+ USDC. Pro: $25+ USDC.
+  const STARTER_THRESHOLD = 10;
+  const PRO_THRESHOLD = 25;
+
+  let detectedPlan: 'starter' | 'pro';
+  if (amountUSDC >= PRO_THRESHOLD) {
+    detectedPlan = 'pro';
+  } else if (amountUSDC >= STARTER_THRESHOLD) {
+    detectedPlan = 'starter';
+  } else {
     await db.updateDocument("payment_sessions", session.id, {
       status: 'wrong_amount',
       received_amount: amountUSDC,
       tx_signature: txSignature
     });
-    console.log(`⚠️ Wrong amount: expected $${expectedAmount}, got $${amountUSDC} for session ${session.id}. Funds swept to master.`);
+    console.log(`⚠️ Solana: Amount $${amountUSDC} is below the minimum $${STARTER_THRESHOLD} threshold for session ${session.id}. Funds swept to master.`);
     return;
   }
+
+  // Use the detected plan (which may differ from what the session originally requested)
+  const resolvedPlan = detectedPlan;
 
   // ── Check session not expired ──
   if (new Date(session.expires_at) < new Date()) {
@@ -126,12 +136,12 @@ export async function handleSolanaPayment(
     });
     await activateSubscription({
       userId: session.user_id,
-      plan: session.plan,
+      plan: resolvedPlan,
       amountUSDC,
       txSignature,
       chain: 'solana'
     });
-    console.log(`✅ Late Payment confirmed for user ${session.user_id} — ${session.plan} activated. Funds swept.`);
+    console.log(`✅ Late Payment confirmed for user ${session.user_id} — ${resolvedPlan} activated. Funds swept.`);
     return;
   }
 
@@ -146,11 +156,11 @@ export async function handleSolanaPayment(
   // ── Activate subscription ──
   await activateSubscription({
     userId: session.user_id,
-    plan: session.plan,
+    plan: resolvedPlan,
     amountUSDC,
     txSignature,
     chain: 'solana'
   });
 
-  console.log(`✅ Payment confirmed for user ${session.user_id} — ${session.plan} activated. Funds swept.`);
+  console.log(`✅ Payment confirmed for user ${session.user_id} — ${resolvedPlan} activated. Funds swept.`);
 }
