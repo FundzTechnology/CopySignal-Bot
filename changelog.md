@@ -1,3 +1,9 @@
+## [2026-05-28T14:17:35-07:00]
+### Recovered & Fixed — SOL Recovery and Solana USDC Webhook Filter Fix
+- **Recovered (SOL Recovery):** Successfully recovered 0.01902 SOL mistakenly sent by the user to their derived deposit address (associated with user Index 1). Derived the private key of the account using the master seed and path `m/44'/501'/1'/0'`, and swept the balance (minus transaction fees) directly to the user's provided wallet address: `AAz75J7ZzmGHwTnwsmvmBUr77MqgR97pCkfavXVgfJkK` (Tx Signature: `3zyXEiH37QGd5wXg4D7vpGk9d6Vx1Tsnxcby4UfgXDdmhvwZ2iRsEW7TovfE8o8SFJEFmGFQr56obkiVUcbo2We8`).
+- **Fixed (Solana Webhook Mint Filter):** Corrected a typo in `apps/bot/src/payments/solanaWebhook.ts` where incoming token transfers were filtered by a legacy/fake USDC mint address instead of the mainnet Solana USDC token address (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`).
+- **Investigated (Generated Address Identicality):** Diagnosed that the user-specific wallet addresses generated on Solana and Sui networks appear identical across the system because all currently registered test accounts share a `user_index` value of `1`. The codebase has robust dynamic HD wallet derivation using sequence counters (`user_indices`) implemented, but since the test accounts were created manually or before index incrementation, they share index 1. Newly registered users will increment this counter correctly, producing unique deposit addresses per user as intended.
+
 ## [2026-05-28T12:58:23-07:00]
 ### Fixed — Billing Page Render Crash
 - **Fixed:** Resolved a `TypeError: Cannot read properties of undefined (reading 'includes')` crash on the `/dashboard/billing` page. This occurred when the payment history table attempted to parse a payment session document that lacked a `status` field. It now correctly uses optional chaining (`h.status?.includes`) and defaults empty statuses to `PENDING`.

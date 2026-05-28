@@ -186,7 +186,7 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
     console.log(`⚠️ SUI payment amount $${totalAmountUSDC} is below the minimum threshold ($${STARTER_THRESHOLD}). Session updated. Funds swept.`);
     
     // Send INCOMPLETE notification
-    const { notify } = await import('./services/notificationService.js');
+    const { notify } = await import('../services/notificationService.js');
     await notify({
       type: 'PAYMENT_INCOMPLETE',
       userId: session.user_id,
@@ -197,7 +197,7 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
         remaining,
         walletAddress,
       }
-    }).catch(e => console.error('Notify error:', e));
+    }).catch((e: any) => console.error('Notify error:', e));
     
     return;
   }

@@ -19,7 +19,7 @@ router.post('/webhook/solana', async (req: Request, res: Response) => {
       const tokenTransfers: any[] = tx.tokenTransfers || [];
       const usdcTransfer = tokenTransfers.find(
         (t: any) =>
-          t.mint === 'DSgSbuu4J4tDFjo7qb98TjtNeDwMHH68CwiKZi66P3Y3'
+          t.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
       );
       if (!usdcTransfer) continue;
 
