@@ -1,3 +1,9 @@
+## [2026-05-28T12:40:04-07:00]
+### Fixed & Improved — Onboarding Flow Refinements
+- **Fixed (Onboarding Step 4):** Replaced the placeholder "QR Code" scanning step with the actual 6-digit Telegram linking code flow in `apps/web/app/onboarding/page.tsx`. This connects the user to the Notification Bot (`@FundzCopySignalBot`) to receive trade alerts properly. The fake SVG QR code rendering and "qr_generated" bug have been removed completely.
+- **Improved (Onboarding Step 3):** Added a "Risk Per Trade (%)" input field when adding a new channel. This correctly binds to the backend channel document instead of defaulting to 1%. It ensures users can customize their stop-loss risk tolerance immediately upon setup.
+- **Fixed (Onboarding Step 2):** Removed "KuCoin" from the exchange dropdown selection since it is not currently supported by the active trading engine.
+
 ## [2026-05-28T12:06:15-07:00]
 ### Fixed & Improved — Payment System Partial Accumulation, SUI Sweeping & Reply-to-Close Guide
 - **Fixed (SUI Sweeping):** The `suiWatcher.ts` now unconditionally calls `sweepSuiUSDCToMaster` before checking if the threshold has been met. Previously, if a payment was under the required threshold ($10 or $25), the bot returned early without sweeping the funds to the master wallet.

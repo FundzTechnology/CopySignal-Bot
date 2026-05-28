@@ -19,6 +19,12 @@ export default function OnboardingPage() {
   
   const [channelName, setChannelName] = useState('');
   const [channelId, setChannelId] = useState('');
+  const [riskPercent, setRiskPercent] = useState(1);
+  
+  // Telegram State
+  const [telegramLinked, setTelegramLinked] = useState(false);
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [codeLoading, setCodeLoading] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +73,12 @@ export default function OnboardingPage() {
         user_id: user?.id,
         name: channelName,
         telegram_id: channelId,
+        telegram_channel_id: channelId,
+        channel_username: channelId.startsWith('@') ? channelId : undefined,
+        exchange: exchangeType,
+        risk_percent: Math.min(Math.max(riskPercent, 0.1), 10),
+        trigger_keyword: '',
+        allow_medium_confidence: true,
         is_active: true,
         created_at: new Date().toISOString()
       });
@@ -75,6 +87,43 @@ export default function OnboardingPage() {
       setError(err.message || 'Failed to add channel.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateLinkCode = async () => {
+    if (!user) return;
+    try {
+      setCodeLoading(true);
+      setError(null);
+      const res = await fetch('/api/telegram/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await res.json();
+      if (data.code) {
+        setLinkCode(data.code);
+      }
+    } catch (err: any) {
+      setError('Failed to generate code');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const fetchTelegramStatus = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/telegram/link?userId=${user.id}`);
+      const data = await res.json();
+      setTelegramLinked(data.linked);
+      if (data.linked) {
+        nextStep();
+      } else {
+        setError('Not linked yet — make sure you sent the code to the bot');
+      }
+    } catch {
+      // non-critical
     }
   };
 
@@ -175,7 +224,6 @@ export default function OnboardingPage() {
                     >
                       <option value="binance">Binance</option>
                       <option value="bybit">ByBit</option>
-                      <option value="kucoin">KuCoin</option>
                     </select>
                   </div>
                   <div>
@@ -276,6 +324,28 @@ export default function OnboardingPage() {
                       </ul>
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
+                      Risk Per Trade (%) <span className="text-muted-foreground/60 ml-1">max 10%</span>
+                    </label>
+                    <input 
+                      type="number"
+                      required
+                      min={0.1}
+                      max={10}
+                      step={0.1}
+                      value={riskPercent}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (val > 10) setRiskPercent(10);
+                        else setRiskPercent(val);
+                      }}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all shadow-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      The stop loss of each trade won't risk more than this % of your account balance.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex gap-4 mt-8 pt-6 border-t border-border">
@@ -296,83 +366,48 @@ export default function OnboardingPage() {
                   <div className="h-12 w-12 rounded-2xl bg-[#0088cc]/20 text-[#0088cc] flex items-center justify-center mb-4">
                     <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Connect Telegram</h2>
-                  <p className="text-muted-foreground">To read messages from private channels, our bot needs to connect to your Telegram account.</p>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Connect Telegram Notifications</h2>
+                  <p className="text-muted-foreground">Get real-time execution alerts sent straight to your Telegram.</p>
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center bg-secondary/30 rounded-2xl border border-border p-8 text-center mb-8">
-                  {loading ? (
-                     <div className="flex flex-col items-center">
-                       <div className="animate-spin h-12 w-12 border-4 border-[#0088cc] border-t-transparent rounded-full mb-4"></div>
-                       <p className="text-sm text-muted-foreground">Generating secure QR code session...</p>
-                     </div>
-                  ) : error === 'qr_generated' ? (
-                     <div className="flex flex-col items-center animate-in zoom-in duration-300">
-                       <div className="bg-white p-4 rounded-xl mb-4">
-                         {/* Placeholder QR code */}
-                         {/* Static QR code placeholder — deterministic to avoid hydration mismatch */}
-                         <svg viewBox="0 0 100 100" className="w-32 h-32" xmlns="http://www.w3.org/2000/svg">
-                           {/* Corner squares */}
-                           <rect x="5" y="5" width="30" height="30" rx="3" fill="black"/>
-                           <rect x="10" y="10" width="20" height="20" rx="1" fill="white"/>
-                           <rect x="14" y="14" width="12" height="12" rx="1" fill="black"/>
-                           <rect x="65" y="5" width="30" height="30" rx="3" fill="black"/>
-                           <rect x="70" y="10" width="20" height="20" rx="1" fill="white"/>
-                           <rect x="74" y="14" width="12" height="12" rx="1" fill="black"/>
-                           <rect x="5" y="65" width="30" height="30" rx="3" fill="black"/>
-                           <rect x="10" y="70" width="20" height="20" rx="1" fill="white"/>
-                           <rect x="14" y="74" width="12" height="12" rx="1" fill="black"/>
-                           {/* Data modules */}
-                           <rect x="42" y="5" width="8" height="8" fill="black"/>
-                           <rect x="52" y="5" width="8" height="8" fill="black"/>
-                           <rect x="42" y="15" width="8" height="8" fill="black"/>
-                           <rect x="42" y="25" width="8" height="8" fill="black"/>
-                           <rect x="52" y="25" width="8" height="8" fill="black"/>
-                           <rect x="5" y="42" width="8" height="8" fill="black"/>
-                           <rect x="15" y="42" width="8" height="8" fill="black"/>
-                           <rect x="25" y="42" width="8" height="8" fill="black"/>
-                           <rect x="5" y="52" width="8" height="8" fill="black"/>
-                           <rect x="25" y="52" width="8" height="8" fill="black"/>
-                           <rect x="42" y="42" width="8" height="8" fill="black"/>
-                           <rect x="52" y="42" width="8" height="8" fill="black"/>
-                           <rect x="62" y="42" width="8" height="8" fill="black"/>
-                           <rect x="42" y="52" width="8" height="8" fill="black"/>
-                           <rect x="62" y="52" width="8" height="8" fill="black"/>
-                           <rect x="72" y="42" width="8" height="8" fill="black"/>
-                           <rect x="82" y="42" width="8" height="8" fill="black"/>
-                           <rect x="72" y="52" width="8" height="8" fill="black"/>
-                           <rect x="82" y="52" width="8" height="8" fill="black"/>
-                           <rect x="42" y="62" width="8" height="8" fill="black"/>
-                           <rect x="52" y="72" width="8" height="8" fill="black"/>
-                           <rect x="62" y="62" width="8" height="8" fill="black"/>
-                           <rect x="52" y="82" width="8" height="8" fill="black"/>
-                           <rect x="62" y="82" width="8" height="8" fill="black"/>
-                           <rect x="72" y="72" width="8" height="8" fill="black"/>
-                           <rect x="82" y="62" width="8" height="8" fill="black"/>
-                           <rect x="82" y="82" width="8" height="8" fill="black"/>
-                         </svg>
-                       </div>
-                       <h3 className="text-lg font-semibold text-foreground mb-2">Scan with Telegram</h3>
-                       <p className="text-sm text-muted-foreground max-w-xs">Open Telegram &gt; Settings &gt; Devices &gt; Link Desktop Device</p>
-                       <button onClick={nextStep} className="mt-6 bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-2 px-6 rounded-xl transition-all">I have scanned the code</button>
-                     </div>
-                  ) : (
-                    <>
-                      <Link className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">QR Code Authentication</h3>
-                      <p className="text-sm text-muted-foreground max-w-sm mb-6">Scan a QR code from your Telegram app to link your account securely. Your session is encrypted.</p>
+                  {!linkCode ? (
+                    <div className="text-center py-4">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">Telegram Alerts</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm mb-6">Link your Telegram account to instantly receive notifications for all your trades.</p>
                       <button 
-                        onClick={() => {
-                          setLoading(true);
-                          setTimeout(() => {
-                            setLoading(false);
-                            setError('qr_generated'); // Reusing error state creatively for UI flow
-                          }, 1500);
-                        }}
-                        className="bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-[#0088cc]/25">
-                        Generate QR Code
+                        onClick={generateLinkCode}
+                        disabled={codeLoading}
+                        className="bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-[#0088cc]/25 disabled:opacity-50">
+                        {codeLoading ? 'Generating...' : 'Generate Linking Code'}
                       </button>
-                    </>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center animate-in zoom-in duration-300">
+                      <h3 className="text-white font-bold mb-2">Your 6-Digit Linking Code:</h3>
+                      <div className="bg-background border border-border px-6 py-3 rounded-xl mb-4">
+                        <span className="text-3xl font-mono font-bold tracking-widest text-blue-400">{linkCode}</span>
+                      </div>
+                      <div className="text-left text-sm text-muted-foreground space-y-2 mb-6 bg-background/50 p-4 rounded-lg w-full max-w-sm">
+                        <p>1. Open <a href="https://t.me/FundzCopySignalBot" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">@FundzCopySignalBot</a></p>
+                        <p>2. Tap <strong>Start</strong>, then send the 6-digit code above as a message.</p>
+                        <p>3. Come back here and click the button below.</p>
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          setCodeLoading(true);
+                          await fetchTelegramStatus();
+                          setCodeLoading(false);
+                        }}
+                        disabled={codeLoading}
+                        className="mt-2 bg-[#0088cc] hover:bg-[#0077b3] text-white font-semibold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {codeLoading ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        ) : null}
+                        I've sent the code
+                      </button>
+                    </div>
                   )}
                 </div>
 
