@@ -381,12 +381,12 @@ export default function BillingPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
-                          h.status.includes('confirmed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                          h.status?.includes('confirmed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                           h.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
                           h.status === 'expired' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
                           'bg-primary/10 text-primary border border-primary/20'
                         }`}>
-                          {h.status === 'confirmed_late' ? 'LATE CONFIRM' : h.status}
+                          {h.status === 'confirmed_late' ? 'LATE CONFIRM' : (h.status || 'PENDING')}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

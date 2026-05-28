@@ -1,3 +1,7 @@
+## [2026-05-28T12:58:23-07:00]
+### Fixed — Billing Page Render Crash
+- **Fixed:** Resolved a `TypeError: Cannot read properties of undefined (reading 'includes')` crash on the `/dashboard/billing` page. This occurred when the payment history table attempted to parse a payment session document that lacked a `status` field. It now correctly uses optional chaining (`h.status?.includes`) and defaults empty statuses to `PENDING`.
+
 ## [2026-05-28T12:40:04-07:00]
 ### Fixed & Improved — Onboarding Flow Refinements
 - **Fixed (Onboarding Step 4):** Replaced the placeholder "QR Code" scanning step with the actual 6-digit Telegram linking code flow in `apps/web/app/onboarding/page.tsx`. This connects the user to the Notification Bot (`@FundzCopySignalBot`) to receive trade alerts properly. The fake SVG QR code rendering and "qr_generated" bug have been removed completely.
