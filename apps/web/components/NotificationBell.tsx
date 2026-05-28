@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import { db } from '@/lib/cocobase';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Notification {
   id: string;
@@ -18,6 +19,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   // Load dismissed IDs from localStorage
   useEffect(() => {
@@ -33,7 +35,7 @@ export function NotificationBell() {
       try {
         const docs = await db.listDocuments('global_notifications', {}) as any[];
         const active = docs
-          .filter((d: any) => d.active)
+          .filter((d: any) => d.active && (!d.user_id || d.user_id === user?.id))
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setNotifications(active);
       } catch {}
@@ -43,7 +45,7 @@ export function NotificationBell() {
     // Poll every 60 seconds
     const interval = setInterval(fetchNotifs, 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.id]);
 
   // Close on outside click
   useEffect(() => {

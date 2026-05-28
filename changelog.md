@@ -1,3 +1,11 @@
+## [2026-05-28T12:06:15-07:00]
+### Fixed & Improved — Payment System Partial Accumulation, SUI Sweeping & Reply-to-Close Guide
+- **Fixed (SUI Sweeping):** The `suiWatcher.ts` now unconditionally calls `sweepSuiUSDCToMaster` before checking if the threshold has been met. Previously, if a payment was under the required threshold ($10 or $25), the bot returned early without sweeping the funds to the master wallet.
+- **Improved (Partial Payments):** Both `solanaPaymentSession.ts` and `suiWatcher.ts` now calculate the accumulated payment amount over multiple transactions (`totalAmount = session.received_amount + amountUSDC`). If a user sends partial amounts that eventually cross the threshold, the bot will correctly upgrade their plan.
+- **Added (Incomplete Payment Alerts):** If the accumulated payment is below the required plan threshold, the bot updates the session with the new total and sends a `PAYMENT_INCOMPLETE` alert. This alert is sent via Telegram and pushed as a user-targeted record to the `global_notifications` table so it displays in the web app's `NotificationBell.tsx`. The message specifically reminds users to account for the 0.5 USDC fee and complete the payment within the 2-hour window.
+- **Improved (Billing UI):** Updated the target amounts in `apps/web/app/(dashboard)/dashboard/billing/page.tsx` from $10 and $25 to $10.5 and $25.5. This proactively incorporates the withdrawal fee into the requested amount, reducing underpayment occurrences.
+- **Updated (Guide):** Added a new section `✅ Reply-to-Close Commands` in `apps/web/app/guide/page.tsx` detailing how admins can reply to signals to instantly close trades.
+
 ## [2026-05-27T22:18:00-07:00]
 ### Fixed & Improved — Stop Loss Break-even False Reporting & Reply-to-Close Commands
 - **Fixed (Stop Loss Break-even):** `apps/bot/src/services/orderMonitor.ts` now uses a retry loop (polling up to 4 times with 5-second delays) when fetching `client.getClosedPnL`. This gives Bybit's backend time to generate the PnL record after a position reaches 0 size. Previously, querying immediately returned no results, causing the bot to default the PnL to $0.00 and report a false "Break-even" for Stop Loss hits.

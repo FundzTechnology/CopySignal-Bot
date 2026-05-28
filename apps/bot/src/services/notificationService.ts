@@ -60,6 +60,7 @@ export type NotificationEvent =
   | { type: 'TRADE_CLOSED'; userId: string; payload: TradeClosedPayload }
   | { type: 'MANUAL_CLOSE'; userId: string; payload: TradeClosedPayload }
   | { type: 'PAYMENT_CONFIRMED'; userId: string; payload: { plan: string; chain: string } }
+  | { type: 'PAYMENT_INCOMPLETE'; userId: string; payload: { chain: string; received: number; target: number; remaining: number; walletAddress: string } }
   | { type: 'SYSTEM_ERROR'; payload: { context: string; error: string } };
 
 // ── Message Formatters ──────────────────────────────────────────────────────
@@ -101,6 +102,24 @@ function formatPaymentConfirmed(p: { plan: string; chain: string }): string {
 *Status:* Active ✅
 
 Your subscription is now active. Happy trading! 🚀
+━━━━━━━━━━━━━━━━━
+_CopySignal Bot_`.trim();
+}
+
+function formatPaymentIncomplete(p: { chain: string; received: number; target: number; remaining: number; walletAddress: string }): string {
+  return `
+⚠️ *Incomplete Payment Received*
+━━━━━━━━━━━━━━━━━
+*Network:* ${p.chain.toUpperCase()}
+*Received:* \`${p.received.toFixed(2)} USDC\`
+*Target:* \`${p.target.toFixed(2)} USDC\`
+*Remaining:* \`${p.remaining.toFixed(2)} USDC\`
+
+The USDC you sent is below the required amount to activate your plan. Please send the remaining *${p.remaining.toFixed(2)} USDC* to the same address before the 2-hour timer expires.
+
+*Remember to add the extra 0.5 USDC to cover network fees.*
+
+*Address:* \`${p.walletAddress}\`
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
 }
@@ -283,6 +302,22 @@ export async function notify(event: NotificationEvent): Promise<void> {
         break;
       case 'PAYMENT_CONFIRMED':
         message = formatPaymentConfirmed(event.payload);
+        break;
+      case 'PAYMENT_INCOMPLETE':
+        message = formatPaymentIncomplete(event.payload);
+        // Also push a global notification specific to this user so it appears in the Web App
+        try {
+          await db.createDocument('global_notifications', {
+            title: '⚠️ Incomplete Payment Received',
+            message: `We received ${event.payload.received.toFixed(2)} USDC, but this is below the required amount. Please send the remaining ${event.payload.remaining.toFixed(2)} USDC to activate your plan.`,
+            priority: 'urgent',
+            user_id: event.userId, // This makes it user-specific
+            active: true,
+            created_at: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error('[Notify] Failed to create global notification:', e);
+        }
         break;
     }
 

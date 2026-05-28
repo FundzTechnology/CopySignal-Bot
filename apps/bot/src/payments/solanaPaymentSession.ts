@@ -103,23 +103,45 @@ export async function handleSolanaPayment(
     console.error(`Error sweeping for user ${userIndex}`, e);
   }
 
-  // ── Determine plan from amount received ──
+  // ── Accumulate partial payments ──
+  const previousAmount = session.received_amount || 0;
+  const totalAmountUSDC = previousAmount + amountUSDC;
+
+  // ── Determine plan from total amount received ──
   // Starter: $10+ USDC. Pro: $25+ USDC.
   const STARTER_THRESHOLD = 10;
   const PRO_THRESHOLD = 25;
 
   let detectedPlan: 'starter' | 'pro';
-  if (amountUSDC >= PRO_THRESHOLD) {
+  if (totalAmountUSDC >= PRO_THRESHOLD) {
     detectedPlan = 'pro';
-  } else if (amountUSDC >= STARTER_THRESHOLD) {
+  } else if (totalAmountUSDC >= STARTER_THRESHOLD) {
     detectedPlan = 'starter';
   } else {
     await db.updateDocument("payment_sessions", session.id, {
       status: 'wrong_amount',
-      received_amount: amountUSDC,
+      received_amount: totalAmountUSDC,
       tx_signature: txSignature
     });
-    console.log(`⚠️ Solana: Amount $${amountUSDC} is below the minimum $${STARTER_THRESHOLD} threshold for session ${session.id}. Funds swept to master.`);
+    
+    const targetAmount = session.amount_expected === 25 ? 25.5 : 10.5;
+    const remaining = Math.max(0, targetAmount - totalAmountUSDC);
+
+    console.log(`⚠️ Solana: Amount $${totalAmountUSDC} is below the minimum $${STARTER_THRESHOLD} threshold for session ${session.id}. Funds swept to master.`);
+    
+    const { notify } = await import('../services/notificationService.js');
+    await notify({
+      type: 'PAYMENT_INCOMPLETE',
+      userId: session.user_id,
+      payload: {
+        chain: 'solana',
+        received: totalAmountUSDC,
+        target: targetAmount,
+        remaining,
+        walletAddress: toAddress,
+      }
+    }).catch(e => console.error('Notify error:', e));
+
     return;
   }
 
@@ -131,13 +153,13 @@ export async function handleSolanaPayment(
     // Still credit the payment — we received the money
     await db.updateDocument("payment_sessions", session.id, {
       status: 'confirmed_late',
-      received_amount: amountUSDC,
+      received_amount: totalAmountUSDC,
       tx_signature: txSignature
     });
     await activateSubscription({
       userId: session.user_id,
       plan: resolvedPlan,
-      amountUSDC,
+      amountUSDC: totalAmountUSDC,
       txSignature,
       chain: 'solana'
     });
@@ -148,16 +170,15 @@ export async function handleSolanaPayment(
   // ── Mark session as confirmed ──
   await db.updateDocument("payment_sessions", session.id, {
     status: 'confirmed',
-    received_amount: amountUSDC,
+    received_amount: totalAmountUSDC,
     tx_signature: txSignature,
     confirmed_at: new Date().toISOString()
   });
 
-  // ── Activate subscription ──
   await activateSubscription({
     userId: session.user_id,
     plan: resolvedPlan,
-    amountUSDC,
+    amountUSDC: totalAmountUSDC,
     txSignature,
     chain: 'solana'
   });

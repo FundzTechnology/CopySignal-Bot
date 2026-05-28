@@ -211,6 +211,21 @@ TP 145 / 140 / 135
 SL 158
 Lev 15x`}</CodeBlock>
 
+            <h3 className="text-white font-semibold text-lg mt-6">✅ Reply-to-Close Commands</h3>
+            <p className="mt-2 text-zinc-300">
+              Admins can instantly close a specific trade by <strong>replying directly to the original signal message</strong> in Telegram with any of the following commands:
+            </p>
+            <ul className="grid sm:grid-cols-2 gap-2 mt-3 mb-4 text-emerald-400 font-mono text-sm">
+              <li>• Close trade</li>
+              <li>• Cancel Trade</li>
+              <li>• End Trade</li>
+              <li>• close Position</li>
+              <li>• cancel position</li>
+            </ul>
+            <InfoBox type="tip">
+              The bot detects the reply, matches the original signal, and automatically issues a 100% market close order on the exchange.
+            </InfoBox>
+
             <h3 className="text-white font-semibold text-lg mt-6">Key Rules for Admins</h3>
             <ul className="space-y-2">
               {[

@@ -150,33 +150,57 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
       console.error('SUI sweep error:', e)
     );
     return;
+    return;
   }
 
-  // ── Determine plan from amount ──
+  // ── Unconditional Sweep ──
+  // We MUST sweep any funds received in this wallet to the master wallet early
+  await sweepSuiUSDCToMaster(session.user_index).catch(e =>
+    console.error('SUI sweep error (non-fatal):', e)
+  );
+
+  // ── Accumulate partial payments ──
+  const previousAmount = session.received_amount || 0;
+  const totalAmountUSDC = previousAmount + amountUSDC;
+
+  // ── Determine plan from total amount ──
   let plan: 'starter' | 'pro' | null = null;
-  if (amountUSDC >= PRO_THRESHOLD) {
+  if (totalAmountUSDC >= PRO_THRESHOLD) {
     plan = 'pro';
-  } else if (amountUSDC >= STARTER_THRESHOLD) {
+  } else if (totalAmountUSDC >= STARTER_THRESHOLD) {
     plan = 'starter';
   }
 
   if (!plan) {
-    console.log(`⚠️ SUI payment amount $${amountUSDC} is below the minimum threshold ($${STARTER_THRESHOLD}). Logging as unmatched.`);
-    await db.createDocument('unmatched_payments', {
-      chain: 'sui',
-      tx_signature: digest,
-      amount_usdc: amountUSDC,
-      to_address: walletAddress,
-      received_at: new Date().toISOString(),
-      resolved: false,
+    // Total is still below threshold. Update session and notify.
+    await db.updateDocument('payment_sessions', session.id, {
+      status: 'wrong_amount',
+      received_amount: totalAmountUSDC,
+      tx_signature: digest
     });
+
+    // Determine the target the user is probably aiming for based on session
+    const targetAmount = session.amount_expected === 25 ? 25.5 : 10.5;
+    const remaining = Math.max(0, targetAmount - totalAmountUSDC);
+
+    console.log(`⚠️ SUI payment amount $${totalAmountUSDC} is below the minimum threshold ($${STARTER_THRESHOLD}). Session updated. Funds swept.`);
+    
+    // Send INCOMPLETE notification
+    const { notify } = await import('./services/notificationService.js');
+    await notify({
+      type: 'PAYMENT_INCOMPLETE',
+      userId: session.user_id,
+      payload: {
+        chain: 'sui',
+        received: totalAmountUSDC,
+        target: targetAmount,
+        remaining,
+        walletAddress,
+      }
+    }).catch(e => console.error('Notify error:', e));
+    
     return;
   }
-
-  // ── Sweep funds to master ──
-  await sweepSuiUSDCToMaster(session.user_index).catch(e =>
-    console.error('SUI sweep error (non-fatal):', e)
-  );
 
   // ── Check session expiry ──
   const isLate = new Date(session.expires_at) < new Date();
@@ -184,7 +208,7 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
   // ── Update session record ──
   await db.updateDocument('payment_sessions', session.id, {
     status: isLate ? 'confirmed_late' : 'confirmed',
-    received_amount: amountUSDC,
+    received_amount: totalAmountUSDC,
     tx_signature: digest,
     confirmed_at: new Date().toISOString(),
   });
@@ -193,7 +217,7 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
   await activateSubscription({
     userId: session.user_id,
     plan,
-    amountUSDC,
+    amountUSDC: totalAmountUSDC,
     txSignature: digest,
     chain: 'sui',
   });
