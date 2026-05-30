@@ -1,3 +1,14 @@
+## [2026-05-30T03:06:26-07:00]
+### Fixed & Improved — SUI/Solana Payment Sweeping & Starter Plan Access Rules
+- **Fixed (SUI Sweeping):** Modified `apps/bot/src/payments/suiWalletDeriver.ts`. SUI Sweeps were failing because derived user wallets had 0 SUI and couldn't pay gas. The sweeping logic now automatically funds the derived wallet with `0.005 SUI` from the master fee payer wallet prior to transferring the USDC. (Note: `0x6f5443...` derived at index 0 acts as the master fee payer for SUI and needs a small SUI balance).
+- **Hardened (Solana Sweeping):** Updated `apps/bot/src/payments/solanaWalletDeriver.ts` to explicitly check if the master Fee Payer wallet has enough SOL (minimum 5,000 lamports) to pay network transfer fees. If not, it logs a clear error alerting the admin to fund the wallet, rather than failing cryptically.
+- **Enforced (Plan Limits - Backend):** 
+  - Updated `apps/bot/src/services/orchestrator.ts` to enforce a maximum of 3 trades per day for Starter plan users.
+  - Updated `apps/bot/src/services/notificationService.ts` to block premium alerts (`TP_HIT`, `SL_HIT`, `TRADE_CLOSED`, `TRADE_ERROR`) for Starter users, restricting them to only "Trade Opened" notifications.
+  - Updated Next.js API routes (`apps/web/app/api/apikeys/route.ts` and `apps/web/app/api/channels/route.ts`) to restrict Starter users to a maximum of 1 connected exchange and 1 Telegram channel.
+- **Updated (Frontend Copy):** 
+  - Updated the landing page (`apps/web/app/page.tsx`), guide page (`apps/web/app/guide/page.tsx`), and billing dashboard (`apps/web/app/(dashboard)/dashboard/billing/page.tsx`) to accurately reflect the new Starter plan limits (3 trades/day, 1 exchange, 1 channel, Entry alerts only) and the Pro plan limits. Also relabelled the $25/mo plan as "Pro / Trial".
+
 ## [2026-05-28T14:17:35-07:00]
 ### Recovered & Fixed — SOL Recovery and Solana USDC Webhook Filter Fix
 - **Recovered (SOL Recovery):** Successfully recovered 0.01902 SOL mistakenly sent by the user to their derived deposit address (associated with user Index 1). Derived the private key of the account using the master seed and path `m/44'/501'/1'/0'`, and swept the balance (minus transaction fees) directly to the user's provided wallet address: `AAz75J7ZzmGHwTnwsmvmBUr77MqgR97pCkfavXVgfJkK` (Tx Signature: `3zyXEiH37QGd5wXg4D7vpGk9d6Vx1Tsnxcby4UfgXDdmhvwZ2iRsEW7TovfE8o8SFJEFmGFQr56obkiVUcbo2We8`).

@@ -75,6 +75,13 @@ export async function sweepUSDCToMaster(
     const balance = await connection.getTokenAccountBalance(userATA);
     const amount = balance.value.amount; // Raw amount in smallest units (6 decimals for USDC)
     if (parseInt(amount) === 0) return null;
+    
+    const feePayer = getFeePayerKeypair();
+    const feePayerBalance = await connection.getBalance(feePayer.publicKey);
+    if (feePayerBalance < 5000) {
+      console.error(`⚠️ Solana sweep failed: Fee payer wallet (${feePayer.publicKey.toString()}) has insufficient SOL (${feePayerBalance} lamports) to pay for gas. Please fund it with SOL.`);
+      return null;
+    }
 
     // Build transfer transaction
     const transaction = new Transaction().add(
@@ -88,7 +95,6 @@ export async function sweepUSDCToMaster(
       )
     );
 
-    const feePayer = getFeePayerKeypair();
     transaction.feePayer = feePayer.publicKey;
     
     // Get latest blockhash
@@ -104,8 +110,8 @@ export async function sweepUSDCToMaster(
     await connection.confirmTransaction(signature, 'confirmed');
     console.log(`✅ Swept ${parseInt(amount) / 1_000_000} USDC from user ${userIndex} to master`);
     return signature;
-  } catch (err) {
-    console.error(`Sweep failed for user ${userIndex}:`, err);
+  } catch (err: any) {
+    console.error(`Sweep failed for user ${userIndex}:`, err.message || err);
     return null;
   }
 }

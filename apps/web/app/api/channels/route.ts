@@ -14,6 +14,22 @@ export async function POST(req: NextRequest) {
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
+    
+    // ── Check Plan Limits ────────────────────────────────────────────────
+    try {
+      const user = await db.auth.getUserById(userId);
+      if (user?.data?.plan === 'starter') {
+        const userChannels = await db.listDocuments('channels', { filters: { user_id: userId, is_active: true } }) as any[];
+        if (userChannels.length >= 1) {
+          return NextResponse.json(
+            { error: 'Starter plan allows a maximum of 1 channel. Please upgrade to Pro.' },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (err) {
+      console.log('[channels] Plan check failed, proceeding...');
+    }
     if (!channelUsername || typeof channelUsername !== 'string') {
       return NextResponse.json({ error: 'channelUsername is required' }, { status: 400 });
     }

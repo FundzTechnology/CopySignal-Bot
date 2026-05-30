@@ -12,6 +12,21 @@ export async function POST(req: NextRequest) {
   const { encrypt, decrypt } = await import('@/lib/crypto');
 
   try {
+    // ── Check Plan Limits ────────────────────────────────────────────────
+    try {
+      const user = await db.auth.getUserById(userId);
+      if (user?.data?.plan === 'starter') {
+        const userKeys = await db.listDocuments('api_keys', { filters: { user_id: userId } }) as any[];
+        if (userKeys.length >= 1) {
+          return NextResponse.json(
+            { error: 'Starter plan allows a maximum of 1 exchange. Please upgrade to Pro.' },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (err) {
+      console.log('[apikeys] Plan check failed, proceeding...');
+    }
     // ── Check API Key Uniqueness ──────────────────────────────────────────
     try {
       const allKeys = await db.listDocuments('api_keys', {}) as any[];

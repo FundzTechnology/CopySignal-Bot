@@ -130,6 +130,36 @@ export async function handleSignal(
     return;
   }
 
+  if (user?.data?.plan === 'starter') {
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    
+    try {
+      const todayTrades = await db.listDocuments("trade_logs", {
+        filters: { user_id: userId }
+      });
+      const tradesToday = (todayTrades as any[]).filter(t => {
+        const d = t.data || t;
+        return new Date(d.created_at) >= startOfDay;
+      });
+      
+      if (tradesToday.length >= 3) {
+        console.log(`[Orchestrator] ⏭️ Starter user ${userId} exceeded 3 trades/day limit — skipping`);
+        await notify({
+          type: 'PLAN_LIMIT_REACHED',
+          userId,
+          payload: {
+            limit_type: 'Daily Trades (3/3)',
+            message: 'You have reached the maximum of 3 trades per day allowed on the Starter Plan.'
+          }
+        });
+        return;
+      }
+    } catch (err) {
+      console.error(`[Orchestrator] Failed to check trade limit for user ${userId}:`, err);
+    }
+  }
+
   // Fetch API keys — handle Cocobase .data nesting
   let apiKeyDoc: any = null;
   try {

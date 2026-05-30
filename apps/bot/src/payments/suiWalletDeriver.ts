@@ -57,12 +57,12 @@ export async function createSuiPaymentSession(
 
 // Sweep USDC from derived SUI address to master
 export async function sweepSuiUSDCToMaster(userIndex: number): Promise<string | null> {
-  if (!MASTER_SUI_ADDRESS) {
-    console.error("SUI_MASTER_WALLET not set. Cannot sweep funds.");
+  if (!MASTER_SUI_ADDRESS || !MASTER_MNEMONIC) {
+    console.error("SUI_MASTER_WALLET or SUI_MASTER_MNEMONIC not set. Cannot sweep funds.");
     return null;
   }
-  const keypair = deriveSuiKeypair(userIndex);
-  const userAddress = keypair.getPublicKey().toSuiAddress();
+  const userKeypair = deriveSuiKeypair(userIndex);
+  const userAddress = userKeypair.getPublicKey().toSuiAddress();
 
   try {
     // Get all USDC coins owned by this derived address
@@ -70,21 +70,54 @@ export async function sweepSuiUSDCToMaster(userIndex: number): Promise<string | 
       owner: userAddress,
       coinType: SUI_USDC_TYPE
     });
+    
+    // Also check for legacy USDC just in case
+    const legacyCoins = await client.getCoins({
+      owner: userAddress,
+      coinType: '0x7f821d44c87a6c44689298672fea7e54800a8a4f9cba2edd6776d8233c7b819f::usdc::USDC'
+    });
+    
+    const allCoins = [...coins.data, ...legacyCoins.data];
 
-    if (!coins.data.length) return null;
+    if (!allCoins.length) return null;
+
+    // Check SUI balance of the user wallet for gas
+    const suiCoins = await client.getCoins({ owner: userAddress, coinType: '0x2::sui::SUI' });
+    const totalSui = suiCoins.data.reduce((acc, c) => acc + parseInt(c.balance), 0);
+
+    // If user has less than 0.003 SUI (3M MIST), fund it from master
+    if (totalSui < 3_000_000) {
+      console.log(`[SUI] User ${userIndex} wallet has low SUI (${totalSui}). Funding 0.005 SUI from master...`);
+      const masterSeed = bip39.mnemonicToSeedSync(MASTER_MNEMONIC);
+      const masterDerived = derivePath(`m/44'/784'/0'/0'/0'`, masterSeed.toString('hex'));
+      const masterKp = Ed25519Keypair.fromSecretKey(masterDerived.key);
+      
+      const fundTx = new TransactionBlock();
+      const [splitCoin] = fundTx.splitCoins(fundTx.gas, [fundTx.pure(5_000_000)]);
+      fundTx.transferObjects([splitCoin], fundTx.pure(userAddress));
+      
+      const fundRes = await client.signAndExecuteTransactionBlock({
+        signer: masterKp,
+        transactionBlock: fundTx,
+      });
+      console.log(`✅ Funded user ${userIndex} with SUI gas. Digest: ${fundRes.digest}`);
+      
+      // Wait a moment for network propagation
+      await new Promise(r => setTimeout(r, 2000));
+    }
 
     const tx = new TransactionBlock();
-    const totalCoinIds = coins.data.map((c: any) => c.coinObjectId);
+    const totalCoinIds = allCoins.map(c => c.coinObjectId);
 
     // Merge all USDC coins if multiple, then transfer
     if (totalCoinIds.length > 1) {
-      tx.mergeCoins(tx.object(totalCoinIds[0]), totalCoinIds.slice(1).map((id: string) => tx.object(id)));
+      tx.mergeCoins(tx.object(totalCoinIds[0]), totalCoinIds.slice(1).map(id => tx.object(id)));
     }
 
     tx.transferObjects([tx.object(totalCoinIds[0])], tx.pure(MASTER_SUI_ADDRESS));
 
     const result = await client.signAndExecuteTransactionBlock({
-      signer: keypair,
+      signer: userKeypair,
       transactionBlock: tx,
     });
 

@@ -61,6 +61,7 @@ export type NotificationEvent =
   | { type: 'MANUAL_CLOSE'; userId: string; payload: TradeClosedPayload }
   | { type: 'PAYMENT_CONFIRMED'; userId: string; payload: { plan: string; chain: string } }
   | { type: 'PAYMENT_INCOMPLETE'; userId: string; payload: { chain: string; received: number; target: number; remaining: number; walletAddress: string } }
+  | { type: 'PLAN_LIMIT_REACHED'; userId: string; payload: { limit_type: string; message: string } }
   | { type: 'SYSTEM_ERROR'; payload: { context: string; error: string } };
 
 // ── Message Formatters ──────────────────────────────────────────────────────
@@ -120,6 +121,18 @@ The USDC you sent is below the required amount to activate your plan. Please sen
 *Remember to add the extra 0.5 USDC to cover network fees.*
 
 *Address:* \`${p.walletAddress}\`
+━━━━━━━━━━━━━━━━━
+_CopySignal Bot_`.trim();
+}
+
+function formatPlanLimitReached(p: { limit_type: string; message: string }): string {
+  return `
+🛑 *Plan Limit Reached*
+━━━━━━━━━━━━━━━━━
+*Limit:* ${p.limit_type}
+${p.message}
+
+Please upgrade to the *Pro Plan* in your dashboard to unlock unlimited access.
 ━━━━━━━━━━━━━━━━━
 _CopySignal Bot_`.trim();
 }
@@ -275,6 +288,26 @@ export async function notify(event: NotificationEvent): Promise<void> {
       return;
     }
 
+    // Check if the user is on the starter plan to filter premium alerts
+    let isStarter = false;
+    try {
+      const user = await db.auth.getUserById(event.userId);
+      if (user?.data?.plan === 'starter') {
+        isStarter = true;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Filter alerts for starter plan
+    if (isStarter) {
+      const blockedEvents = ['TP_HIT', 'SL_HIT', 'TRADE_CLOSED', 'TRADE_ERROR', 'MANUAL_CLOSE'];
+      if (blockedEvents.includes(event.type)) {
+        console.log(`[Notify] Blocked ${event.type} for Starter user ${event.userId}`);
+        return;
+      }
+    }
+
     let message = '';
     switch (event.type) {
       case 'TRADE_OPENED':
@@ -318,6 +351,9 @@ export async function notify(event: NotificationEvent): Promise<void> {
         } catch (e) {
           console.error('[Notify] Failed to create global notification:', e);
         }
+        break;
+      case 'PLAN_LIMIT_REACHED':
+        message = formatPlanLimitReached(event.payload);
         break;
     }
 

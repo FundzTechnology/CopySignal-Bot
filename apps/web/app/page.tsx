@@ -245,10 +245,10 @@ export default function LandingPage() {
                   <span className="text-muted-foreground">/mo</span>
                 </div>
                 <ul className="space-y-4 mb-8">
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Max 3 Trades per Day</li>
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> 1 Telegram Channel</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Telegram Trade Alerts</li>
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Bybit OR Binance Support</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Basic Dashboard</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Trade Opened Alerts Only</li>
                 </ul>
                 <Link href="/register" className="block w-full text-center bg-secondary hover:bg-secondary/80 text-foreground border border-border font-semibold py-3 rounded-xl transition-colors">
                   Start Free Trial
@@ -260,17 +260,17 @@ export default function LandingPage() {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                   Most Popular
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-2">Pro</h3>
+                <h3 className="text-2xl font-bold text-foreground mb-2">Pro / Trial</h3>
                 <div className="mb-6">
                   <span className="text-4xl font-extrabold text-foreground">$25</span>
                   <span className="text-muted-foreground">/mo</span>
                 </div>
                 <ul className="space-y-4 mb-8">
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Unlimited Trades per Day</li>
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Unlimited Telegram Channels</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Bybit AND Binance Support</li>
+                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Full TP/SL & Closure Alerts</li>
                   <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Full P&L Analytics Dashboard</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Bybit + Binance Support</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Personal Alert Bot DMs</li>
-                  <li className="flex items-center gap-3 text-muted-foreground"><CheckCircle2 className="h-5 w-5 text-primary" /> Priority Support</li>
                 </ul>
                 <Link href="/register" className="block w-full text-center bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-primary/25">
                   Start Free Trial
