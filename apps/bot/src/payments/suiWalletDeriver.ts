@@ -45,7 +45,7 @@ export async function createSuiPaymentSession(
     user_index: userIndex,
     plan,
     sui_address: suiAddress,
-    amount_expected: plan === 'starter' ? 10 : 25,
+    amount_expected: plan === 'starter' ? 10.5 : 25.5,
     status: 'pending',
     chain: 'sui',
     created_at: new Date().toISOString(),

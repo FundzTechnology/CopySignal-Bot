@@ -205,6 +205,21 @@ async function handleLinkingCode(chatId: string, telegramUsername: string, code:
       }
     }
 
+    // Also update the auth user profile data so that dailySubscriptionCheck.ts and notify can read it directly from auth user object
+    try {
+      const existingUser = await db.auth.getUserById(userId);
+      await (db.auth as any).updateUser(userId, {
+        data: {
+          ...(existingUser?.data || {}),
+          telegram_user_id: chatId,
+          telegram_username: telegramUsername
+        }
+      });
+      console.log(`[TelegramService] Updated auth user ${userId} profile with telegram info`);
+    } catch (authErr: any) {
+      console.error(`[TelegramService] Failed to update auth user profile:`, authErr.message || authErr);
+    }
+
     await bot.sendMessage(
       chatId,
       `✅ *Account linked successfully!*\n\n` +

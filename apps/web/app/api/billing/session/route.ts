@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
     // ── Create a 2-hour payment session record in Cocobase ───────────────────
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-    const amountExpected = plan === 'starter' ? 10 : 25;
+    const amountExpected = plan === 'starter' ? 10.5 : 25.5;
 
     try {
       await db.createDocument('payment_sessions', {

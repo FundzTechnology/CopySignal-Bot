@@ -18,7 +18,7 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$10 / mo',
+    price: '10.5 USDC',
     amount: 10.5,
     channels: '1 channel',
     exchanges: '1 exchange',
@@ -28,7 +28,7 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro / Trial',
-    price: '$25 / mo',
+    price: '25.5 USDC',
     amount: 25.5,
     channels: 'Unlimited',
     exchanges: 'Both',
@@ -268,7 +268,7 @@ export default function BillingPage() {
           <div className="text-sm">
             <p className="text-orange-300 font-bold mb-1">Important: Account for Network Fees</p>
             <p className="text-orange-200/80 leading-relaxed">
-              Always add an extra <strong className="text-orange-400">0.5 USDC</strong> to your transfer. Exchanges deduct withdrawal fees from your sent amount. To activate your plan, the exact final amount arriving in your wallet must be at least <strong>${selectedPlanAmount}</strong>.
+              Please send exactly <strong>10.5 USDC</strong> for Starter or <strong>25.5 USDC</strong> for Pro. Centralized exchanges deduct a ~0.5 USDC withdrawal fee. The extra 0.5 USDC ensures your net deposit meets the required minimum threshold.
             </p>
           </div>
         </div>
@@ -302,8 +302,19 @@ export default function BillingPage() {
                 {copied === 'wallet' ? '✓ Copied' : 'Copy'}
               </button>
             </div>
+
+            {/* Address QR Code Display */}
+            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl w-40 h-40 mx-auto my-4 shadow-md">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(paymentSession.address)}`}
+                alt="Payment QR Code"
+                width={130}
+                height={130}
+                className="border border-zinc-200"
+              />
+            </div>
             
-            <p className="text-blue-400 text-xs font-semibold">
+            <p className="text-blue-400 text-xs font-semibold text-center">
               ℹ️ No memo required! This wallet is uniquely generated for your account. Payment is confirmed automatically.
             </p>
           </div>

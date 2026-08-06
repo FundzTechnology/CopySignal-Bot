@@ -180,7 +180,7 @@ async function processSuiTransaction(txBlock: any, walletAddress: string, sessio
     });
 
     // Determine the target the user is probably aiming for based on session
-    const targetAmount = session.amount_expected === 25 ? 25.5 : 10.5;
+    const targetAmount = (session.amount_expected === 25 || session.amount_expected === 25.5) ? 25.5 : 10.5;
     const remaining = Math.max(0, targetAmount - totalAmountUSDC);
 
     console.log(`⚠️ SUI payment amount $${totalAmountUSDC} is below the minimum threshold ($${STARTER_THRESHOLD}). Session updated. Funds swept.`);

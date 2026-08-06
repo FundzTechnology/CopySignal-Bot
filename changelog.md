@@ -1,3 +1,12 @@
+## [2026-08-06T01:38:00-07:00]
+### Added & Improved — SUI USDC Payment Integration & 30-Day Subscription Expiration Cron Job
+- **Updated (Billing UI):** Modified `apps/web/app/(dashboard)/dashboard/billing/page.tsx`. Updated the pricing display for the Starter plan to 10.5 USDC and Pro plan to 25.5 USDC. Replaced the network fee warning message with the exact required callout text. Added a QR code display block for generated deposit addresses using `api.qrserver.com`.
+- **Updated (Session API):** Modified `apps/web/app/api/billing/session/route.ts` to set the expected payment session amount to 10.5 USDC for Starter and 25.5 USDC for Pro.
+- **Fixed (SUI Watcher):** Modified `apps/bot/src/payments/suiWatcher.ts` to support both 25 and 25.5 USDC expected payment amounts when identifying payment targets.
+- **Updated (SUI Wallet Derivation):** Modified `apps/bot/src/payments/suiWalletDeriver.ts` to set `amount_expected` to 10.5 and 25.5 USDC in `createSuiPaymentSession`.
+- **Improved (Telegram Linking):** Modified `apps/bot/src/services/telegramService.ts` to sync linked Telegram details (`telegram_user_id` and `telegram_username`) to BOTH the auth profile and the backup custom users collection, ensuring reliable user notification and status checking.
+- **Improved (Cron Job Expiry):** Modified `apps/bot/src/jobs/dailySubscriptionCheck.ts` to fetch actual users from auth via `db.auth.listUsers()`, downgrade expired accounts to `'free'`, automatically deactivate the active channels of expired users to pause signal listeners, and notify users via Telegram.
+
 ## [2026-05-30T03:06:26-07:00]
 ### Fixed & Improved — SUI/Solana Payment Sweeping & Starter Plan Access Rules
 - **Fixed (SUI Sweeping):** Modified `apps/bot/src/payments/suiWalletDeriver.ts`. SUI Sweeps were failing because derived user wallets had 0 SUI and couldn't pay gas. The sweeping logic now automatically funds the derived wallet with `0.005 SUI` from the master fee payer wallet prior to transferring the USDC. (Note: `0x6f5443...` derived at index 0 acts as the master fee payer for SUI and needs a small SUI balance).
