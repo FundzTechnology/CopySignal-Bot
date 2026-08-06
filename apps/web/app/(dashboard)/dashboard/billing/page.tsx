@@ -41,7 +41,7 @@ const PLANS = [
 export default function BillingPage() {
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro'>('pro');
-  const [selectedChain, setSelectedChain] = useState<'sui' | 'solana'>('sui');
+  const [selectedChain, setSelectedChain] = useState<'sui'>('sui');
   const [copied, setCopied] = useState<string | null>(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -139,7 +139,7 @@ export default function BillingPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Billing & Subscription</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Pay with USDC on Solana or SUI. Payments are instant and irreversible.
+          Pay with USDC on SUI. Payments are instant and irreversible.
         </p>
       </div>
 
@@ -223,31 +223,8 @@ export default function BillingPage() {
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h2 className="text-white font-semibold">Pay with USDC</h2>
-          {/* Chain Selector */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedChain('sui')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition ${
-                selectedChain === 'sui'
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-              }`}
-            >
-              SUI
-              <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                ✅ Recommended
-              </span>
-            </button>
-            <button
-              onClick={() => setSelectedChain('solana')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold border transition ${
-                selectedChain === 'solana'
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-              }`}
-            >
-              Solana
-            </button>
+          <div className="bg-blue-950/40 border border-blue-500/20 px-4 py-2 rounded-lg text-sm font-semibold text-blue-400">
+            SUI Mainnet Network Only
           </div>
         </div>
 
@@ -258,7 +235,7 @@ export default function BillingPage() {
             ${selectedPlanAmount} <span className="text-zinc-400 text-base">USDC</span>
           </p>
           <p className="text-zinc-500 text-xs mt-1">
-            {selectedChain === 'sui' ? 'USDC on SUI network' : 'USDC on Solana network'}
+            USDC on SUI network
           </p>
         </div>
 
@@ -321,35 +298,33 @@ export default function BillingPage() {
         )}
 
         {/* Step 3 — Instructions */}
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-          <p className="text-white text-sm font-semibold mb-2">
-            {selectedChain === 'sui' ? '📱 How to pay with Sui Wallet' : '📱 How to pay with Phantom'}
+        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-5 space-y-4">
+          <p className="text-white text-sm font-bold flex items-center gap-2">
+            📱 How to pay with your wallet (Phantom 👻 / SUI wallet / slush / suiet / surf wallet / backpack etc...)
           </p>
-          <ol className="text-zinc-400 text-xs space-y-1.5 list-decimal list-inside">
-            {selectedChain === 'sui' ? (
-              <>
-                <li>Open <span className="text-white">Sui Wallet</span> → tap Send</li>
-                <li>Select <span className="text-white">USDC</span> as the token</li>
-                <li>Paste your unique wallet address above</li>
-                <li>Enter <span className="text-white">${selectedPlanAmount}</span> as the amount</li>
-                <li>Confirm and send</li>
-              </>
-            ) : (
-              <>
-                <li>Open <span className="text-white">Phantom</span> → tap Send</li>
-                <li>Select <span className="text-white">USDC</span> (not SOL)</li>
-                <li>Paste your unique wallet address above</li>
-                <li>Enter <span className="text-white">${selectedPlanAmount}</span></li>
-                <li>Confirm and send</li>
-              </>
-            )}
-          </ol>
+          
+          <div className="text-zinc-300 text-xs space-y-3">
+            <p className="font-semibold text-blue-400">Standard Workflow for All Sui-Compatible Wallets</p>
+            <p className="leading-relaxed">Here is the exact step-by-step process for sending USDC on Sui across any of these wallets:</p>
+            
+            <ol className="list-decimal list-inside space-y-2.5 ml-1">
+              <li className="leading-relaxed">
+                <strong className="text-white">Fund the Wallet:</strong> Receive SUI into your wallet address (you need a small fraction of SUI, usually less than $0.01 worth, to pay for transaction/gas fees).
+              </li>
+              <li className="leading-relaxed">
+                <strong className="text-white">Swap to USDC (If starting with SUI):</strong> Open the Swap tab in the wallet, select SUI as the source token and USDC (Sui) as the target token, then confirm the swap.
+              </li>
+              <li className="leading-relaxed">
+                <strong className="text-white">Send USDC:</strong> Tap Send, select USDC, paste the recipient&apos;s SUI network address (starts with <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0x...</code>) generated above, enter the exact amount (<strong>{selectedPlanAmount} USDC</strong>), and confirm the transaction.
+              </li>
+            </ol>
+          </div>
         </div>
 
         {/* What happens next */}
         <div className="border-t border-zinc-800 pt-4">
           <p className="text-zinc-500 text-xs">
-            🕐 <span className="text-zinc-300">What happens next:</span> Once your transaction is confirmed on-chain (usually within 2–5 seconds on SUI, ~2 seconds on Solana), your account is automatically upgraded and you&apos;ll receive a Telegram confirmation. Your plan is valid for 30 days from the payment date.
+            🕐 <span className="text-zinc-300">What happens next:</span> Once your transaction is confirmed on-chain (usually within 2–5 seconds on SUI), your account is automatically upgraded and you&apos;ll receive a Telegram confirmation. Your plan is valid for 30 days from the payment date.
           </p>
         </div>
         </div>

@@ -12,6 +12,7 @@ const sections = [
   { id: 'telegram-setup', label: 'Telegram Channels (Sources)' },
   { id: 'bot-alerts', label: 'Telegram Notification Bot' },
   { id: 'advanced-features', label: 'Advanced Features (Multi-TP)' },
+  { id: 'payment-setup', label: 'Billing & SUI USDC Payment' },
   { id: 'testnet', label: 'Demo & Paper Trading' },
 ];
 
@@ -363,6 +364,44 @@ Lev 15x`}</CodeBlock>
             </ul>
           </Section>
 
+          {/* SECTION: Billing & SUI USDC Payment */}
+          <Section id="payment-setup" title="Billing & SUI USDC Payment" icon={<KeyRound className="h-5 w-5" />}>
+            <p>
+              CopySignal Bot operates exclusively on the <strong className="text-white">SUI Network</strong> for all subscriptions and renewals. We strictly accept <strong className="text-white">USDC on SUI</strong>.
+            </p>
+            
+            <InfoBox type="warning">
+              <strong>Account for Exchange Fees:</strong> Please send exactly <strong>10.5 USDC</strong> for the Starter plan or <strong>25.5 USDC</strong> for the Pro plan. Centralized exchanges deduct a ~0.5 USDC withdrawal fee. The extra 0.5 USDC ensures your net deposit meets the required minimum threshold.
+            </InfoBox>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+              <h3 className="text-white font-bold text-lg">📱 How to pay with your wallet (Phantom 👻 / SUI wallet / slush / suiet / surf wallet / backpack etc...)</h3>
+              <p className="text-zinc-300 font-semibold">Standard Workflow for All Sui-Compatible Wallets</p>
+              <p className="text-sm">Here is the exact step-by-step process for sending USDC on Sui across any of these wallets:</p>
+              
+              <ul className="space-y-3 mt-2">
+                <li className="text-sm flex items-start gap-2.5">
+                  <span className="h-5 w-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <div>
+                    <strong className="text-white">Fund the Wallet:</strong> Receive SUI into your wallet address (you need a small fraction of SUI, usually less than $0.01 worth, to pay for transaction/gas fees).
+                  </div>
+                </li>
+                <li className="text-sm flex items-start gap-2.5">
+                  <span className="h-5 w-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <div>
+                    <strong className="text-white">Swap to USDC (If starting with SUI):</strong> Open the Swap tab in the wallet, select SUI as the source token and USDC (Sui) as the target token, then confirm the swap.
+                  </div>
+                </li>
+                <li className="text-sm flex items-start gap-2.5">
+                  <span className="h-5 w-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <div>
+                    <strong className="text-white">Send USDC:</strong> Tap Send, select USDC, paste the recipient&apos;s SUI network address (starts with 0x...), enter the amount and confirm the transaction.
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </Section>
+
           {/* SECTION 6: Demo / Paper Trading */}
           <Section id="testnet" title="Demo & Paper Trading" icon={<Zap className="h-5 w-5" />}>
             <p>Want to test the bot without risking real money? We strongly recommend using <strong className="text-white">Bybit Demo Trading</strong> — it runs on the same mainnet infrastructure with live price action, but uses virtual funds.</p>
@@ -431,7 +470,7 @@ Lev 15x`}</CodeBlock>
           {/* CTA */}
           <div className="bg-gradient-to-br from-blue-950/60 to-purple-950/40 border border-blue-500/20 rounded-3xl p-10 text-center space-y-5">
             <h2 className="text-3xl font-bold">Ready to Start?</h2>
-            <p className="text-zinc-400 max-w-xl mx-auto">Create your free account and get 5 days of Pro access — no payment required. Starter plan from <strong className="text-white">$10/mo</strong>, Pro from <strong className="text-white">$25/mo</strong>. Pay with USDC on Solana or SUI.</p>
+            <p className="text-zinc-400 max-w-xl mx-auto">Create your free account and get 5 days of Pro access — no payment required. Starter plan from <strong className="text-white">$10/mo</strong>, Pro from <strong className="text-white">$25/mo</strong>. Pay with USDC on SUI.</p>
             <Link href="/register" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-full text-lg transition-all shadow-[0_0_40px_-10px_rgba(59,130,246,0.6)] hover:scale-105">
               Start Free Trial <ArrowRight className="h-5 w-5" />
             </Link>

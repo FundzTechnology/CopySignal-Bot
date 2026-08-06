@@ -233,7 +233,7 @@ export default function LandingPage() {
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">Simple, transparent pricing.</h2>
-              <p className="text-lg text-muted-foreground">Pay with USDC on Solana or SUI. Cancel anytime.</p>
+              <p className="text-lg text-muted-foreground">Pay with USDC on SUI. Cancel anytime.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -291,7 +291,7 @@ export default function LandingPage() {
                 { q: "Is it safe to connect my exchange API?", a: "Yes. We require API keys with ONLY trading permissions. Our system outright rejects any API key that has withdrawal permissions enabled. Your keys are encrypted at rest using AES-256." },
                 { q: "How fast are trades executed?", a: "Trades are executed within milliseconds of the Telegram signal arriving. Our global infrastructure is hosted near major exchange servers to minimize network latency." },
                 { q: "Do I need to leave my computer on?", a: "No. CopySignal Bot is 100% cloud-based. Once you set it up, it runs 24/7 on our enterprise-grade servers." },
-                { q: "How do I pay?", a: "We accept USDC on the Solana and SUI networks. The payment process is fully automated—your subscription activates seconds after the blockchain confirms the transfer." },
+                { q: "How do I pay?", a: "We accept USDC on the SUI network. The payment process is fully automated—your subscription activates seconds after the blockchain confirms the transfer." },
               ].map((faq, i) => (
                 <div key={i} className="bg-card border border-border rounded-2xl p-6">
                   <h4 className="text-lg font-bold text-foreground mb-2">{faq.q}</h4>

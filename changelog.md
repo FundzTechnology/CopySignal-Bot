@@ -1,3 +1,8 @@
+## [2026-08-06T01:59:00-07:00]
+### Updated — Restrict payment UI to SUI USDC-only and added SUI Wallet guides
+- **Updated (Billing UI):** Modified `apps/web/app/(dashboard)/dashboard/billing/page.tsx` to remove the Solana chain selector and references to Solana. Standardized to SUI USDC. Added step-by-step SUI-compatible wallet workflow instructions (Phantom, SUI Wallet, slush, suiet, surf wallet, backpack, etc.).
+- **Updated (Landing & Guide Pages):** Modified `apps/web/app/page.tsx` and `apps/web/app/guide/page.tsx` to restrict payment descriptions to SUI network USDC only and remove Solana options. Added a detailed SUI Wallet workflow section to the Guide page.
+
 ## [2026-08-06T01:38:00-07:00]
 ### Added & Improved — SUI USDC Payment Integration & 30-Day Subscription Expiration Cron Job
 - **Updated (Billing UI):** Modified `apps/web/app/(dashboard)/dashboard/billing/page.tsx`. Updated the pricing display for the Starter plan to 10.5 USDC and Pro plan to 25.5 USDC. Replaced the network fee warning message with the exact required callout text. Added a QR code display block for generated deposit addresses using `api.qrserver.com`.
